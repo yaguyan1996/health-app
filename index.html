@@ -1,0 +1,3062 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#10b981">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="HealthApp">
+  <title>健康管理アプリ</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    :root {
+      --primary: #10b981;
+      --primary-dark: #059669;
+      --primary-light: #d1fae5;
+      --danger: #ef4444;
+      --warning: #f97316;
+      --bg: #f0fdf4;
+      --card-bg: #ffffff;
+      --text: #1f2937;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --shadow: 0 2px 12px rgba(16,185,129,0.08);
+      --shadow-md: 0 4px 24px rgba(16,185,129,0.12);
+      --radius: 16px;
+      --radius-sm: 10px;
+      --tab-height: 64px;
+      --header-height: 60px;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+    }
+
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      max-width: 480px;
+      margin: 0 auto;
+      position: relative;
+    }
+
+    /* Header */
+    .header {
+      height: var(--header-height);
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(16,185,129,0.3);
+    }
+
+    .header h1 {
+      color: #fff;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+
+    /* Tab content area */
+    .tab-content-area {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      padding: 16px;
+      padding-bottom: calc(var(--tab-height) + 16px);
+    }
+
+    /* Tab panels */
+    .tab-panel {
+      display: none;
+    }
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* Bottom tabs */
+    .bottom-tabs {
+      height: var(--tab-height);
+      background: var(--card-bg);
+      border-top: 1px solid var(--border);
+      display: flex;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      z-index: 100;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.08);
+    }
+    .bottom-tabs::-webkit-scrollbar { display:none; }
+
+    .tab-btn {
+      min-width: 60px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      padding: 6px 4px;
+      font-size: 10px;
+      color: var(--text-muted);
+      gap: 2px;
+      transition: color 0.2s;
+    }
+
+    /* New feature styles */
+    .tag-list { display:flex; flex-wrap:wrap; gap:6px; min-height:28px; }
+    .tag { background:var(--primary-light); color:var(--primary-dark); border-radius:20px; padding:4px 10px; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:4px; }
+    .tag-del { background:none; border:none; cursor:pointer; color:var(--primary-dark); font-size:13px; padding:0 2px; line-height:1; }
+    .tag-add-row { display:flex; gap:8px; margin-top:8px; }
+    .tag-add-row input { flex:1; }
+    .btn-sm { padding:9px 14px; background:var(--primary); color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap; }
+    .mood-row { display:flex; justify-content:space-around; margin:8px 0 4px; }
+    .mood-btn { font-size:30px; cursor:pointer; border:2px solid transparent; background:none; padding:4px 6px; border-radius:50%; transition:all 0.15s; }
+    .mood-btn.selected { border-color:var(--primary); transform:scale(1.25); }
+    .stress-slider { width:100%; height:6px; accent-color:var(--primary); cursor:pointer; }
+    .habit-list { display:flex; flex-direction:column; gap:8px; }
+    .habit-item { display:flex; align-items:center; gap:10px; padding:9px 12px; background:var(--bg); border-radius:10px; }
+    .habit-item input[type=checkbox] { width:18px; height:18px; accent-color:var(--primary); flex-shrink:0; cursor:pointer; }
+    .habit-item label { font-size:13px; cursor:pointer; }
+    .phq-q { margin-bottom:14px; }
+    .phq-options { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
+    .phq-opt { padding:5px 10px; border:1.5px solid var(--border); border-radius:8px; font-size:12px; cursor:pointer; background:#fff; }
+    .phq-opt.selected { border-color:var(--primary); background:var(--primary-light); color:var(--primary-dark); font-weight:700; }
+    .visit-card { background:var(--bg); border-radius:10px; padding:12px; margin-bottom:8px; }
+    .visit-card .vc-top { display:flex; justify-content:space-between; align-items:flex-start; }
+    .visit-card .vc-hospital { font-size:15px; font-weight:700; }
+    .visit-card .vc-date { font-size:12px; color:var(--text-muted); }
+    .visit-card .vc-row { font-size:12px; color:var(--text-muted); margin-top:3px; }
+    .sr-item { padding:10px 12px; background:var(--bg); border-radius:8px; margin-bottom:6px; cursor:default; }
+    .sr-cat { font-size:10px; color:var(--primary); font-weight:700; margin-bottom:2px; }
+    .sr-main { font-size:13px; font-weight:600; }
+    .sr-sub { font-size:11px; color:var(--text-muted); margin-top:1px; }
+    .next-appt-box { padding:10px 14px; background:#fffbeb; border:1.5px solid #fde68a; border-radius:10px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center; }
+    .next-appt-box .na-days { font-size:18px; font-weight:800; color:#b45309; }
+    .next-appt-box .na-info { font-size:12px; color:#92400e; }
+
+    .tab-btn .tab-icon {
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+    }
+
+    .tab-btn.active .tab-label {
+      font-weight: 700;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+      margin-bottom: 16px;
+    }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    /* Form elements */
+    .form-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .form-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    input[type="date"],
+    input[type="time"],
+    input[type="number"],
+    input[type="text"],
+    select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-family: inherit;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+      -webkit-appearance: none;
+      appearance: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus,
+    select:focus {
+      border-color: var(--primary);
+    }
+
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7280' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 12px center;
+      padding-right: 32px;
+    }
+
+    .btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      margin-top: 4px;
+    }
+
+    .btn-primary:active {
+      background: var(--primary-dark);
+      transform: scale(0.98);
+    }
+
+    /* Stat display */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .stat-box {
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      text-align: center;
+    }
+
+    .stat-value {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary);
+      line-height: 1.1;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* BMI Badge */
+    .bmi-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-left: 8px;
+    }
+
+    .bmi-thin { background: #dbeafe; color: #1d4ed8; }
+    .bmi-normal { background: #d1fae5; color: #065f46; }
+    .bmi-fat { background: #fee2e2; color: #991b1b; }
+
+    /* Progress bar */
+    .progress-wrap {
+      background: var(--bg);
+      border-radius: 999px;
+      height: 10px;
+      overflow: hidden;
+      margin-top: 6px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--primary);
+      transition: width 0.3s;
+      max-width: 100%;
+    }
+
+    .progress-bar.over {
+      background: var(--danger);
+    }
+
+    /* Entry list */
+    .entry-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .entry-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      gap: 8px;
+    }
+
+    .entry-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .entry-main {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .entry-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .btn-delete {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 16px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      transition: color 0.2s, background 0.2s;
+      flex-shrink: 0;
+    }
+
+    .btn-delete:hover, .btn-delete:active {
+      color: var(--danger);
+      background: #fee2e2;
+    }
+
+    /* Canvas charts */
+    canvas {
+      display: block;
+      width: 100% !important;
+      border-radius: 8px;
+    }
+
+    /* Stars */
+    .star-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .star {
+      font-size: 26px;
+      cursor: pointer;
+      color: #d1d5db;
+      transition: color 0.15s, transform 0.1s;
+      user-select: none;
+    }
+
+    .star.filled {
+      color: #f59e0b;
+    }
+
+    .star:active {
+      transform: scale(1.2);
+    }
+
+    /* Sleep duration preview */
+    .sleep-preview {
+      font-size: 13px;
+      color: var(--primary);
+      font-weight: 700;
+      padding: 6px 10px;
+      background: var(--primary-light);
+      border-radius: 8px;
+      margin-top: 4px;
+      display: none;
+    }
+
+    /* Toast */
+    #toast {
+      position: fixed;
+      bottom: calc(var(--tab-height) + 16px);
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1f2937;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      z-index: 999;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Settings row */
+    .settings-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .settings-row label {
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .settings-row input[type="number"] {
+      width: 90px;
+    }
+
+    .empty-msg {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      padding: 12px 0;
+    }
+
+    /* Section title inside card */
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+
+    /* Photo upload */
+    .photo-upload-area {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 10px;
+      position: relative;
+    }
+    .photo-upload-area:hover, .photo-upload-area.drag-over {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+    .photo-upload-area input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .photo-preview {
+      max-width: 100%; max-height: 200px; border-radius: 8px;
+      margin-top: 8px; display: none;
+    }
+    .api-key-section {
+      margin-bottom: 12px;
+      padding: 10px 12px;
+      background: #fefce8;
+      border: 1px solid #fde68a;
+      border-radius: var(--radius-sm);
+    }
+    .api-key-section label { color: #92400e; font-size: 12px; }
+    .api-key-section input { font-size: 13px; padding: 8px 10px; }
+    .api-key-toggle { font-size: 12px; color: var(--text-muted); text-align: right; margin-top: 4px; cursor: pointer; }
+    .analyzing-overlay {
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,0.85);
+      display: none; align-items: center; justify-content: center;
+      border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 600; color: var(--primary);
+      flex-direction: column; gap: 8px;
+    }
+    .analyzing-overlay.show { display: flex; }
+    .spinner {
+      width: 24px; height: 24px;
+      border: 3px solid var(--primary-light);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .analyzed-items {
+      background: var(--primary-light); border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; display: none;
+    }
+    .analyzed-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 6px 0; border-bottom: 1px solid rgba(16,185,129,0.2);
+      cursor: pointer;
+    }
+    .analyzed-item:last-child { border-bottom: none; }
+    .analyzed-item:hover { opacity: 0.8; }
+    .analyzed-item-name { font-size: 14px; font-weight: 600; }
+    .analyzed-item-edit { background:none; border:none; cursor:pointer; font-size:15px; padding:2px 6px; color:var(--text-muted); flex-shrink:0; }
+    .analyzed-item-edit:active { color:var(--primary); }
+    .analyzed-edit-row { display:none; gap:6px; padding:6px 0 4px; align-items:center; }
+    .analyzed-edit-row.show { display:flex; }
+    .analyzed-edit-row input { flex:1; padding:6px 8px; font-size:13px; border:1.5px solid var(--primary); border-radius:8px; background:#fff; }
+    .analyzed-edit-row input[type=number] { max-width:80px; }
+    .analyzed-apply-btn { background:var(--primary); color:#fff; border:none; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
+    .analyzed-item-cal { font-size: 13px; color: var(--primary); font-weight: 700; }
+    .analyzed-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    /* Login overlay */
+    #login-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: linear-gradient(135deg, #059669, #10b981);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+    }
+    .login-box {
+      background: #fff; border-radius: 20px; padding: 32px 24px;
+      width: 100%; max-width: 380px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.15);
+    }
+    .login-box h2 { text-align:center; font-size:22px; color:var(--primary); margin-bottom:20px; }
+    .login-tabs { display:flex; gap:8px; margin-bottom:20px; }
+    .login-tabs button {
+      flex:1; padding:9px; border:none; border-radius:10px; font-size:14px; font-weight:600;
+      cursor:pointer; background:var(--bg); color:var(--text-muted);
+    }
+    .login-tabs button.active { background:var(--primary); color:#fff; }
+    .login-field { margin-bottom:12px; }
+    .login-field label { font-size:12px; color:var(--text-muted); display:block; margin-bottom:4px; }
+    .login-field input {
+      width:100%; padding:10px 12px; border:1.5px solid var(--border); border-radius:10px;
+      font-size:15px; outline:none;
+    }
+    .login-field input:focus { border-color:var(--primary); }
+    .login-submit {
+      width:100%; padding:13px; background:var(--primary); color:#fff; border:none;
+      border-radius:12px; font-size:16px; font-weight:700; cursor:pointer; margin-top:4px;
+    }
+    .login-submit:active { background:var(--primary-dark); }
+    .login-error { font-size:12px; color:var(--danger); margin-top:8px; min-height:18px; }
+    .login-setup { font-size:12px; color:var(--text-muted); margin-top:16px; line-height:1.7; }
+    .login-setup a { color:var(--primary); }
+    .login-setup input {
+      width:100%; padding:8px 10px; border:1.5px solid var(--border); border-radius:8px;
+      font-size:13px; margin-top:4px; outline:none;
+    }
+    .login-setup .setup-btn {
+      width:100%; padding:10px; background:var(--primary-light); color:var(--primary-dark);
+      border:1.5px solid var(--primary); border-radius:10px; font-size:14px; font-weight:700;
+      cursor:pointer; margin-top:8px;
+    }
+    /* Textarea */
+    textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 15px;
+      font-family: inherit;
+      background: #fff;
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.2s;
+      resize: vertical;
+      min-height: 70px;
+    }
+    textarea:focus { border-color: var(--primary); }
+
+    /* Tag chips */
+    .tag-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      background: #d1fae5;
+      color: #065f46;
+      margin: 3px 3px 3px 0;
+      cursor: default;
+    }
+    .tag-chip.allergy {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .tag-chip button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 11px;
+      padding: 0 0 0 2px;
+      color: inherit;
+      opacity: 0.7;
+      line-height: 1;
+    }
+    .tag-chip button:hover { opacity: 1; }
+
+    .tag-input-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .tag-input-row input { flex: 1; margin: 0; }
+    .tag-input-row button {
+      padding: 10px 14px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* Mood buttons */
+    .mood-btn-row {
+      display: flex;
+      gap: 8px;
+      justify-content: space-around;
+      margin: 10px 0;
+    }
+    .mood-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      padding: 10px 12px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #fff;
+      cursor: pointer;
+      font-size: 24px;
+      transition: border-color 0.2s, background 0.2s;
+      flex: 1;
+    }
+    .mood-btn span { font-size: 10px; color: var(--text-muted); }
+    .mood-btn.active {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+    .mood-btn.active span { color: var(--primary-dark); font-weight: 700; }
+
+    /* Habit checks */
+    .habit-check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .habit-check:last-child { border-bottom: none; }
+    .habit-check input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      min-width: 20px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+    .habit-check label {
+      font-size: 14px;
+      color: var(--text);
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    /* Visit / appointment cards */
+    .visit-card {
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 12px;
+      margin-bottom: 8px;
+      border-left: 3px solid var(--primary);
+    }
+    .visit-card.overdue { border-left-color: var(--danger); }
+    .visit-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .visit-card-title { font-size: 14px; font-weight: 700; color: var(--text); }
+    .visit-card-date { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+    .visit-card.overdue .visit-card-date { color: var(--danger); font-weight: 700; }
+
+    /* PHQ-9 */
+    .phq-question {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .phq-question:last-child { border-bottom: none; }
+    .phq-q-text { font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+    .phq-options {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+    }
+    .phq-opt {
+      padding: 6px 4px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      background: #fff;
+      font-size: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      color: var(--text-muted);
+    }
+    .phq-opt.selected {
+      background: var(--primary-light);
+      border-color: var(--primary);
+      color: var(--primary-dark);
+      font-weight: 700;
+    }
+
+    /* Stress range */
+    .stress-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 10px 0;
+    }
+    .stress-row input[type="range"] { flex: 1; accent-color: var(--primary); }
+    .stress-val {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary);
+      min-width: 28px;
+      text-align: center;
+    }
+
+    /* Search panel */
+    .search-input-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .search-input-row input { flex: 1; }
+    .search-input-row button {
+      padding: 10px 16px;
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .search-result-item {
+      display: flex;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+      align-items: flex-start;
+    }
+    .search-badge {
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .badge-weight  { background: #d1fae5; color: #065f46; }
+    .badge-diet    { background: #fef3c7; color: #92400e; }
+    .badge-exercise{ background: #ede9fe; color: #5b21b6; }
+    .badge-sleep   { background: #dbeafe; color: #1d4ed8; }
+    .badge-karte   { background: #fee2e2; color: #991b1b; }
+    .badge-visits  { background: #fce7f3; color: #9d174d; }
+    .badge-mental  { background: #e0e7ff; color: #3730a3; }
+
+    /* Scrollable bottom nav */
+    .bottom-tabs {
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+    }
+    .bottom-tabs::-webkit-scrollbar { display: none; }
+
+    /* Header user info */
+    .header-user {
+      display:flex; align-items:center; gap:6px; flex-shrink:0;
+    }
+    .header-user span { font-size:11px; color:rgba(255,255,255,0.85); max-width:100px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .btn-logout {
+      font-size:11px; background:rgba(255,255,255,0.2); color:#fff; border:none;
+      border-radius:6px; padding:4px 8px; cursor:pointer;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Login Overlay -->
+<div id="login-overlay">
+  <div class="login-box">
+    <h2>💪 健康管理アプリ</h2>
+
+    <!-- Supabase Setup (shown when not configured) -->
+    <div id="sb-setup-section">
+      <p class="login-setup">
+        初回のみ：<a href="https://supabase.com" target="_blank">supabase.com</a> で無料プロジェクトを作成し、<br>
+        Project URL と anon key を入力してください。
+      </p>
+      <div class="login-field" style="margin-top:12px">
+        <label>Project URL</label>
+        <input type="text" id="sb-url" placeholder="https://xxxx.supabase.co">
+      </div>
+      <div class="login-field">
+        <label>Anon Key</label>
+        <input type="text" id="sb-key" placeholder="eyJhbGci...">
+      </div>
+      <button class="login-submit" onclick="saveSbConfig()">設定を保存して続ける</button>
+      <div class="login-error" id="sb-config-error"></div>
+    </div>
+
+    <!-- Login / Signup (shown when Supabase is configured) -->
+    <div id="sb-auth-section" style="display:none">
+      <div class="login-tabs">
+        <button class="active" id="btn-login-tab" onclick="showTab('login')">ログイン</button>
+        <button id="btn-signup-tab" onclick="showTab('signup')">新規登録</button>
+      </div>
+
+      <div id="login-form-box">
+        <div class="login-field"><label>メールアドレス</label><input type="email" id="login-email" placeholder="example@mail.com"></div>
+        <div class="login-field"><label>パスワード</label><input type="password" id="login-pw" placeholder="パスワード"></div>
+        <button class="login-submit" onclick="doLogin()">ログイン</button>
+        <div class="login-error" id="login-error"></div>
+      </div>
+
+      <div id="signup-form-box" style="display:none">
+        <div class="login-field"><label>メールアドレス</label><input type="email" id="signup-email" placeholder="example@mail.com"></div>
+        <div class="login-field"><label>パスワード（6文字以上）</label><input type="password" id="signup-pw" placeholder="パスワード"></div>
+        <button class="login-submit" onclick="doSignup()">アカウント作成</button>
+        <div class="login-error" id="signup-error"></div>
+      </div>
+
+      <p style="font-size:11px;color:var(--text-muted);margin-top:14px;text-align:center;cursor:pointer" onclick="resetSbConfig()">⚙️ Supabase設定を変更</p>
+    </div>
+  </div>
+</div>
+
+<div id="app">
+  <header class="header">
+    <h1>💪 健康管理アプリ</h1>
+    <div class="header-user" id="header-user" style="display:none">
+      <span id="user-email-display"></span>
+      <button class="btn-logout" onclick="doLogout()">ログアウト</button>
+    </div>
+  </header>
+
+  <div class="tab-content-area">
+
+    <!-- Tab 1: 体重・BMI -->
+    <div id="panel-weight" class="tab-panel active">
+
+      <div class="card">
+        <div class="card-title">体重・BMI 記録</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>日付</label>
+            <input type="date" id="w-date">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>体重 (kg)</label>
+            <input type="number" id="w-weight" placeholder="60.0" step="0.1" min="20" max="300">
+          </div>
+          <div class="form-group">
+            <label>身長 (cm)</label>
+            <input type="number" id="w-height" placeholder="170" step="0.1" min="100" max="250">
+          </div>
+        </div>
+        <button class="btn-primary" onclick="saveWeight()">保存する</button>
+      </div>
+
+      <div class="card" id="w-bmi-card" style="display:none">
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-value" id="w-latest-weight">--</div>
+            <div class="stat-label">最新体重 (kg)</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="w-bmi-value">--</div>
+            <div class="stat-label">BMI <span id="w-bmi-badge"></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">📈 体重推移 (直近14件)</div>
+        <canvas id="chart-weight" height="160"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="section-title">履歴</div>
+        <ul class="entry-list" id="w-list"></ul>
+      </div>
+
+    </div>
+
+    <!-- Tab 2: 食事 -->
+    <div id="panel-diet" class="tab-panel">
+
+      <div class="card">
+        <div class="card-title">食事・カロリー 記録</div>
+
+        <!-- API Key section (collapsible) -->
+        <div class="api-key-section" id="api-key-section">
+          <div class="form-group">
+            <label>Claude API キー（写真解析に必要）</label>
+            <input type="password" id="claude-api-key" placeholder="sk-ant-..." oninput="saveApiKey()">
+          </div>
+          <div class="api-key-toggle" onclick="toggleApiKeySection()">▲ 非表示</div>
+        </div>
+        <div id="api-key-collapsed" style="display:none; margin-bottom:10px;">
+          <span style="font-size:12px; color:var(--text-muted); cursor:pointer" onclick="toggleApiKeySection()">🔑 APIキーを設定 ▼</span>
+        </div>
+
+        <!-- Photo upload -->
+        <div class="photo-upload-area" id="photo-drop-area">
+          <input type="file" id="d-photo" accept="image/*" onchange="handlePhotoSelect(event)">
+          <div id="photo-placeholder">
+            <div style="font-size:32px">📸</div>
+            <div style="font-size:13px; color:var(--text-muted); margin-top:4px">タップして選択<br><small>カメラ撮影 または ライブラリから選択</small></div>
+          </div>
+          <img id="photo-preview-img" class="photo-preview">
+          <button id="reanalyze-btn" onclick="reanalyzePhoto()" style="display:none;margin-top:8px;width:100%;padding:8px;background:var(--primary-light);color:var(--primary-dark);border:1.5px solid var(--primary);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🔄 再解析する</button>
+          <div class="analyzing-overlay" id="analyzing-overlay">
+            <div class="spinner"></div>
+            <span>AI が解析中...</span>
+          </div>
+        </div>
+
+        <!-- Analyzed results -->
+        <div class="analyzed-items" id="analyzed-items-box">
+          <div style="font-size:12px; font-weight:700; color:var(--primary); margin-bottom:6px">✨ 検出された食品（タップして保存）</div>
+          <div id="analyzed-items-list"></div>
+          <div class="analyzed-hint">食品名を変えるとカロリーが自動更新されます</div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>日付</label>
+            <input type="date" id="d-date">
+          </div>
+          <div class="form-group">
+            <label>食事タイプ</label>
+            <select id="d-type">
+              <option value="朝食">朝食</option>
+              <option value="昼食">昼食</option>
+              <option value="夕食">夕食</option>
+              <option value="間食">間食</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>食品名</label>
+            <input type="text" id="d-food" placeholder="例：ご飯、サラダ" oninput="scheduleFoodCalLookup()">
+          </div>
+          <div class="form-group">
+            <label>カロリー (kcal)</label>
+            <input type="number" id="d-cal" placeholder="500" min="0" max="9999">
+          </div>
+        </div>
+        <button class="btn-primary" onclick="saveDiet()">保存する</button>
+      </div>
+
+      <div class="card">
+        <div class="settings-row">
+          <label>目標カロリー</label>
+          <input type="number" id="d-goal" value="2000" min="500" max="9999" step="100" onchange="saveDietGoal()">
+          <label>kcal</label>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:4px">
+          <span style="font-size:14px; font-weight:600">今日の合計</span>
+          <span style="font-size:18px; font-weight:800; color:var(--primary)" id="d-today-total">0 kcal</span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-bar" id="d-progress-bar" style="width:0%"></div>
+        </div>
+        <div style="font-size:11px; color:var(--text-muted); margin-top:4px; text-align:right" id="d-progress-text">0 / 2000 kcal</div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">🍽 今日の食事</div>
+        <div id="d-today-meals"></div>
+        <div id="d-today-total-row" style="display:none;border-top:2px solid var(--primary-light);margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;align-items:center">
+          <span style="font-size:13px;font-weight:700;color:var(--text)">1日の合計</span>
+          <span style="font-size:16px;font-weight:800;color:var(--primary)" id="d-meal-total">0 kcal</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">📊 7日間カロリー推移</div>
+        <canvas id="chart-diet" height="160"></canvas>
+      </div>
+
+    </div>
+
+    <!-- Tab 3: 運動 -->
+    <div id="panel-exercise" class="tab-panel">
+
+      <div class="card">
+        <div class="card-title">運動・活動 記録</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>日付</label>
+            <input type="date" id="e-date">
+          </div>
+          <div class="form-group">
+            <label>運動の種類</label>
+            <select id="e-type" onchange="updateExerciseCalcUI()">
+              <option value="徒歩">🚶 徒歩</option>
+              <option value="ランニング">🏃 ランニング</option>
+              <option value="筋トレ">💪 筋トレ</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>時間 (分)</label>
+            <input type="number" id="e-duration" placeholder="30" min="1" max="999" oninput="calcExerciseCal()">
+          </div>
+          <div class="form-group" id="e-steps-group">
+            <label>歩数（任意）</label>
+            <input type="number" id="e-steps" placeholder="3000" min="0" max="99999" oninput="calcExerciseCal()">
+          </div>
+        </div>
+        <div id="e-cal-preview" style="display:none; background:var(--primary-light); border-radius:8px; padding:8px 12px; margin-bottom:10px; font-size:13px; font-weight:700; color:#065f46;">
+          🔥 推定消費カロリー: <span id="e-cal-val">--</span> kcal
+        </div>
+        <button class="btn-primary" onclick="saveExercise()">保存する</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">今週のサマリー</div>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-value" id="e-week-duration">0</div>
+            <div class="stat-label">合計時間 (分)</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="e-week-cal">0</div>
+            <div class="stat-label">消費カロリー (kcal)</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">📊 7日間 運動時間 (分)</div>
+        <canvas id="chart-exercise" height="140"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="section-title">🔥 7日間 消費カロリー (kcal)</div>
+        <canvas id="chart-exercise-cal" height="140"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="section-title">👟 7日間 歩数 (歩)</div>
+        <canvas id="chart-exercise-steps" height="140"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="section-title">履歴</div>
+        <ul class="entry-list" id="e-list"></ul>
+      </div>
+
+    </div>
+
+    <!-- Tab 4: 睡眠 -->
+    <div id="panel-sleep" class="tab-panel">
+
+      <div class="card">
+        <div class="card-title">睡眠 記録</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>日付</label>
+            <input type="date" id="s-date">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>就寝時刻</label>
+            <input type="time" id="s-bed" onchange="updateSleepPreview()">
+          </div>
+          <div class="form-group">
+            <label>起床時刻</label>
+            <input type="time" id="s-wake" onchange="updateSleepPreview()">
+          </div>
+        </div>
+        <div id="s-preview" class="sleep-preview"></div>
+        <div style="margin:10px 0 4px">
+          <label style="display:block; margin-bottom:6px">睡眠の質</label>
+          <div class="star-row" id="s-stars">
+            <span class="star" data-val="1" onclick="setSleepRating(1)">★</span>
+            <span class="star" data-val="2" onclick="setSleepRating(2)">★</span>
+            <span class="star" data-val="3" onclick="setSleepRating(3)">★</span>
+            <span class="star" data-val="4" onclick="setSleepRating(4)">★</span>
+            <span class="star" data-val="5" onclick="setSleepRating(5)">★</span>
+          </div>
+        </div>
+        <button class="btn-primary" onclick="saveSleep()">保存する</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">平均統計</div>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-value" id="s-avg-duration">--</div>
+            <div class="stat-label">平均睡眠時間 (h)</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="s-avg-quality">--</div>
+            <div class="stat-label">平均睡眠の質</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">📈 睡眠時間推移 (直近14件)</div>
+        <canvas id="chart-sleep" height="160"></canvas>
+      </div>
+
+      <div class="card">
+        <div class="section-title">履歴</div>
+        <ul class="entry-list" id="s-list"></ul>
+      </div>
+
+    </div>
+
+    <!-- Tab 5: カルテ -->
+    <div id="panel-karte" class="tab-panel">
+      <div class="card">
+        <div class="card-title">🩺 持病・慢性疾患</div>
+        <div class="tag-list" id="k-conditions-list"></div>
+        <div class="tag-add-row" style="margin-top:10px">
+          <input type="text" id="k-condition-input" placeholder="例：高血圧、糖尿病">
+          <button class="btn-sm" onclick="addKarteTag('conditions','k-condition-input')">追加</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">⚠️ アレルギー</div>
+        <div class="tag-list" id="k-allergies-list"></div>
+        <div class="tag-add-row" style="margin-top:10px">
+          <input type="text" id="k-allergy-input" placeholder="例：スギ花粉、卵、ペニシリン">
+          <button class="btn-sm" onclick="addKarteTag('allergies','k-allergy-input')">追加</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">💊 薬管理</div>
+        <div class="form-row">
+          <div class="form-group"><label>薬の名前</label><input type="text" id="k-med-name" placeholder="例：アムロジピン"></div>
+          <div class="form-group"><label>用量</label><input type="text" id="k-med-dose" placeholder="例：5mg"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>服用頻度</label>
+            <select id="k-med-freq"><option>毎日</option><option>朝のみ</option><option>夜のみ</option><option>朝・夜</option><option>頓服</option><option>週1回</option></select>
+          </div>
+          <div class="form-group"><label>開始日</label><input type="date" id="k-med-start"></div>
+        </div>
+        <div class="form-group" style="margin-bottom:10px"><label>メモ</label><input type="text" id="k-med-notes" placeholder="副作用・注意事項など"></div>
+        <button class="btn-primary" onclick="saveMedication()">追加する</button>
+        <ul class="entry-list" id="k-med-list" style="margin-top:12px"></ul>
+      </div>
+      <div class="card">
+        <div class="card-title">📋 病歴</div>
+        <div class="form-row">
+          <div class="form-group"><label>日付</label><input type="date" id="k-hist-date"></div>
+          <div class="form-group"><label>病名・症状</label><input type="text" id="k-hist-cond" placeholder="例：骨折、虫垂炎"></div>
+        </div>
+        <div class="form-group" style="margin-bottom:10px"><label>メモ</label><input type="text" id="k-hist-notes" placeholder="治療内容・入院期間など"></div>
+        <button class="btn-primary" onclick="saveHistory()">追加する</button>
+        <ul class="entry-list" id="k-hist-list" style="margin-top:12px"></ul>
+      </div>
+      <div class="card">
+        <div class="card-title">🌸 生理管理</div>
+        <div class="form-row">
+          <div class="form-group"><label>最終生理開始日</label><input type="date" id="k-period-last"></div>
+          <div class="form-group"><label>周期（日）</label><input type="number" id="k-period-cycle" placeholder="28" min="14" max="60" value="28"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>期間（日）</label><input type="number" id="k-period-dur" placeholder="5" min="1" max="14" value="5"></div>
+        </div>
+        <button class="btn-primary" onclick="savePeriod()">保存・次回予測</button>
+        <div id="k-period-next" style="margin-top:10px;padding:12px;background:var(--primary-light);border-radius:10px;display:none">
+          <div style="font-size:13px;color:var(--primary-dark);font-weight:700" id="k-period-next-text"></div>
+        </div>
+        <div style="margin-top:14px">
+          <div class="section-title">📅 生理記録</div>
+          <div class="form-row">
+            <div class="form-group"><label>開始日</label><input type="date" id="k-prec-date"></div>
+            <div class="form-group"><label>日数</label><input type="number" id="k-prec-days" placeholder="5" min="1" max="14"></div>
+          </div>
+          <input type="text" id="k-prec-notes" placeholder="症状・メモ（腹痛、頭痛など）" style="margin-bottom:8px">
+          <button class="btn-primary" onclick="savePeriodRecord()">記録する</button>
+          <ul class="entry-list" id="k-prec-list" style="margin-top:10px"></ul>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">🦷 歯の管理</div>
+        <div class="form-row">
+          <div class="form-group"><label>最終検診日</label><input type="date" id="k-dental-last"></div>
+          <div class="form-group"><label>次回予定日</label><input type="date" id="k-dental-next"></div>
+        </div>
+        <div class="form-group" style="margin-bottom:10px"><label>メモ</label><input type="text" id="k-dental-notes" placeholder="クリーニング、虫歯治療など"></div>
+        <button class="btn-primary" onclick="saveDental()">保存する</button>
+        <div id="k-dental-status" style="margin-top:10px"></div>
+      </div>
+    </div>
+
+    <!-- Tab 6: 通院 -->
+    <div id="panel-visits" class="tab-panel">
+      <div class="card">
+        <div class="card-title">🏥 通院記録</div>
+        <div class="form-row">
+          <div class="form-group"><label>日付</label><input type="date" id="v-date"></div>
+          <div class="form-group"><label>病院・クリニック名</label><input type="text" id="v-hospital" placeholder="田中クリニック"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>診療科</label><input type="text" id="v-dept" placeholder="内科、整形外科"></div>
+          <div class="form-group"><label>担当医師</label><input type="text" id="v-doctor" placeholder="田中先生"></div>
+        </div>
+        <div class="form-group" style="margin-bottom:8px"><label>症状・主訴</label><input type="text" id="v-symptoms" placeholder="頭痛、発熱、腹痛など"></div>
+        <div class="form-group" style="margin-bottom:8px"><label>診断・結果</label><input type="text" id="v-diagnosis" placeholder="風邪、高血圧など"></div>
+        <div class="form-group" style="margin-bottom:8px"><label>処方薬</label><input type="text" id="v-prescription" placeholder="ロキソニン3日分など"></div>
+        <div class="form-group" style="margin-bottom:10px"><label>次回予約日</label><input type="date" id="v-nextdate"></div>
+        <button class="btn-primary" onclick="saveVisit()">保存する</button>
+      </div>
+      <div class="card">
+        <div class="card-title">📅 次回予約</div>
+        <div id="v-upcoming-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📋 通院履歴</div>
+        <div id="v-list"></div>
+      </div>
+    </div>
+
+    <!-- Tab 7: メンタル -->
+    <div id="panel-mental" class="tab-panel">
+      <div class="card">
+        <div class="card-title">🧠 今日の気分・ストレス</div>
+        <label style="display:block;margin-bottom:4px;font-size:12px;font-weight:600;color:var(--text-muted)">気分を選択</label>
+        <div class="mood-row">
+          <button class="mood-btn" data-mood="1" onclick="selectMood(1)" title="最悪">😢</button>
+          <button class="mood-btn" data-mood="2" onclick="selectMood(2)" title="悪い">😔</button>
+          <button class="mood-btn" data-mood="3" onclick="selectMood(3)" title="普通">😐</button>
+          <button class="mood-btn" data-mood="4" onclick="selectMood(4)" title="良い">😊</button>
+          <button class="mood-btn" data-mood="5" onclick="selectMood(5)" title="最高">😄</button>
+        </div>
+        <div id="m-mood-label" style="text-align:center;font-size:12px;color:var(--primary);font-weight:700;margin-bottom:12px;min-height:16px"></div>
+        <label style="display:block;margin-bottom:6px;font-size:12px;font-weight:600;color:var(--text-muted)">ストレスレベル: <span id="m-stress-val" style="color:var(--danger);font-weight:800">5</span>/10</label>
+        <input type="range" class="stress-slider" id="m-stress" min="1" max="10" value="5" oninput="$('m-stress-val').textContent=this.value">
+        <div class="form-group" style="margin-top:12px"><label>今日のメモ</label><input type="text" id="m-notes" placeholder="今日あったこと、感じたことなど"></div>
+        <button class="btn-primary" style="margin-top:10px" onclick="saveMentalRecord()">記録する</button>
+      </div>
+      <div class="card">
+        <div class="card-title">✅ 生活習慣チェック</div>
+        <div class="habit-list">
+          <div class="habit-item"><input type="checkbox" id="h-water"><label for="h-water">💧 水を8杯（約2L）飲んだ</label></div>
+          <div class="habit-item"><input type="checkbox" id="h-sun"><label for="h-sun">☀️ 日光を30分以上浴びた</label></div>
+          <div class="habit-item"><input type="checkbox" id="h-exercise"><label for="h-exercise">🏃 30分以上運動した</label></div>
+          <div class="habit-item"><input type="checkbox" id="h-social"><label for="h-social">👥 誰かと会話・交流した</label></div>
+          <div class="habit-item"><input type="checkbox" id="h-screen"><label for="h-screen">📵 就寝1時間前にスクリーンを切った</label></div>
+          <div class="habit-item"><input type="checkbox" id="h-meditation"><label for="h-meditation">🧘 瞑想・深呼吸・ストレッチをした</label></div>
+          <div class="habit-item"><input type="checkbox" id="h-alcohol"><label for="h-alcohol">🚫 飲酒なし（または適量以内）</label></div>
+          <div class="habit-item"><input type="checkbox" id="h-veg"><label for="h-veg">🥦 野菜・果物を食べた</label></div>
+        </div>
+        <div id="habit-score" style="margin-top:10px;padding:8px 12px;background:var(--bg);border-radius:8px;font-size:13px;color:var(--primary);font-weight:700;text-align:center"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">🔍 うつ・メンタルヘルスチェック</div>
+        <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px">過去2週間、次のことがどのくらいありましたか？（PHQ-2）</p>
+        <div class="phq-q">
+          <p style="font-size:13px;font-weight:600;margin-bottom:0">① 物事への興味・楽しみがほとんどない</p>
+          <div class="phq-options" id="phq-q1">
+            <button class="phq-opt" onclick="selectPhq('q1',0)">全くない</button>
+            <button class="phq-opt" onclick="selectPhq('q1',1)">数日</button>
+            <button class="phq-opt" onclick="selectPhq('q1',2)">半分以上</button>
+            <button class="phq-opt" onclick="selectPhq('q1',3)">ほぼ毎日</button>
+          </div>
+        </div>
+        <div class="phq-q">
+          <p style="font-size:13px;font-weight:600;margin-bottom:0">② 気分の落ち込み・絶望感がある</p>
+          <div class="phq-options" id="phq-q2">
+            <button class="phq-opt" onclick="selectPhq('q2',0)">全くない</button>
+            <button class="phq-opt" onclick="selectPhq('q2',1)">数日</button>
+            <button class="phq-opt" onclick="selectPhq('q2',2)">半分以上</button>
+            <button class="phq-opt" onclick="selectPhq('q2',3)">ほぼ毎日</button>
+          </div>
+        </div>
+        <div id="phq-result" style="display:none;padding:10px 12px;border-radius:8px;margin-top:4px;font-size:13px;font-weight:600"></div>
+        <p style="font-size:10px;color:var(--text-muted);margin-top:8px">※ あくまで参考です。気になる場合は専門家にご相談ください。</p>
+      </div>
+      <div class="card">
+        <div class="section-title">📊 7日間 気分推移</div>
+        <canvas id="chart-mood" height="140"></canvas>
+      </div>
+      <div class="card">
+        <div class="section-title">📝 記録履歴</div>
+        <ul class="entry-list" id="m-list"></ul>
+      </div>
+    </div>
+
+    <!-- Tab 8: 検索 -->
+    <div id="panel-search" class="tab-panel">
+      <div class="card">
+        <div class="card-title">🔍 全体検索</div>
+        <input type="text" id="search-input" placeholder="キーワードを入力してください..." oninput="doSearch(this.value)" style="font-size:16px">
+        <div id="search-results" style="margin-top:12px"></div>
+      </div>
+    </div>
+
+  </div><!-- /tab-content-area -->
+
+  <!-- Bottom tabs -->
+  <nav class="bottom-tabs">
+    <button class="tab-btn active" id="tab-weight" onclick="switchTab('weight')">
+      <span class="tab-icon">⚖️</span>
+      <span class="tab-label">体重</span>
+    </button>
+    <button class="tab-btn" id="tab-diet" onclick="switchTab('diet')">
+      <span class="tab-icon">🍽️</span>
+      <span class="tab-label">食事</span>
+    </button>
+    <button class="tab-btn" id="tab-exercise" onclick="switchTab('exercise')">
+      <span class="tab-icon">🏃</span>
+      <span class="tab-label">運動</span>
+    </button>
+    <button class="tab-btn" id="tab-sleep" onclick="switchTab('sleep')">
+      <span class="tab-icon">😴</span>
+      <span class="tab-label">睡眠</span>
+    </button>
+    <button class="tab-btn" id="tab-karte" onclick="switchTab('karte')">
+      <span class="tab-icon">🩺</span>
+      <span class="tab-label">カルテ</span>
+    </button>
+    <button class="tab-btn" id="tab-visits" onclick="switchTab('visits')">
+      <span class="tab-icon">🏥</span>
+      <span class="tab-label">通院</span>
+    </button>
+    <button class="tab-btn" id="tab-mental" onclick="switchTab('mental')">
+      <span class="tab-icon">🧠</span>
+      <span class="tab-label">メンタル</span>
+    </button>
+    <button class="tab-btn" id="tab-search" onclick="switchTab('search')">
+      <span class="tab-icon">🔍</span>
+      <span class="tab-label">検索</span>
+    </button>
+  </nav>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ============================================================
+// Supabase Auth & Sync
+// ============================================================
+let _sb = null;
+let _currentUser = null;
+
+const SB_DEFAULT = {
+  url: 'https://bvrqpionvrnjjtillhsk.supabase.co',
+  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2cnFwaW9udnJuamp0aWxsaHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MTUxNjEsImV4cCI6MjA5NjQ5MTE2MX0.1vhKaQkmZn8OLFmRN2ZZ0GArzC5g3hTFifac--uZ2L4'
+};
+
+function getSbConfig() {
+  try { return JSON.parse(localStorage.getItem('hm_sb_config') || 'null'); } catch { return null; }
+}
+
+function initSb(url, key) {
+  _sb = window.supabase.createClient(url, key);
+  return _sb;
+}
+
+function saveSbConfig() {
+  const url = $('sb-url').value.trim();
+  const key = $('sb-key').value.trim();
+  if (!url || !key) { $('sb-config-error').textContent = 'URLとKeyを入力してください'; return; }
+  if (!url.startsWith('https://')) { $('sb-config-error').textContent = 'URLは https:// から始まります'; return; }
+  localStorage.setItem('hm_sb_config', JSON.stringify({ url, key }));
+  initSb(url, key);
+  $('sb-setup-section').style.display = 'none';
+  $('sb-auth-section').style.display = 'block';
+}
+
+function resetSbConfig() {
+  localStorage.removeItem('hm_sb_config');
+  location.reload();
+}
+
+function showTab(tab) {
+  $('login-form-box').style.display = tab === 'login' ? '' : 'none';
+  $('signup-form-box').style.display = tab === 'signup' ? '' : 'none';
+  $('btn-login-tab').className = tab === 'login' ? 'active' : '';
+  $('btn-signup-tab').className = tab === 'signup' ? 'active' : '';
+}
+
+async function doLogin() {
+  const email = $('login-email').value.trim();
+  const pw = $('login-pw').value;
+  if (!email || !pw) return;
+  $('login-error').textContent = 'ログイン中...';
+  try {
+    const { data, error } = await _sb.auth.signInWithPassword({ email, password: pw });
+    if (error) { $('login-error').textContent = 'エラー: ' + (error.message === 'Invalid login credentials' ? 'メールアドレスかパスワードが違います' : error.message); return; }
+    await onLoginSuccess(data.user);
+  } catch(e) {
+    $('login-error').textContent = 'エラー: ' + e.message;
+  }
+}
+
+async function doSignup() {
+  const email = $('signup-email').value.trim();
+  const pw = $('signup-pw').value;
+  if (!email || !pw) return;
+  $('signup-error').textContent = '登録中...';
+  try {
+    const { data, error } = await _sb.auth.signUp({ email, password: pw });
+    if (error) { $('signup-error').textContent = 'エラー: ' + error.message; return; }
+    if (data.user && !data.session) {
+      $('signup-error').textContent = '✅ 登録完了！「ログイン」タブからログインしてください。';
+      return;
+    }
+    if (data.user) {
+      await onLoginSuccess(data.user);
+    } else {
+      $('signup-error').textContent = 'エラー: 登録に失敗しました。しばらくしてから再試行してください。';
+    }
+  } catch(e) {
+    $('signup-error').textContent = 'エラー: ' + e.message;
+  }
+}
+
+async function doLogout() {
+  await _sb.auth.signOut();
+  location.reload();
+}
+
+async function onLoginSuccess(user) {
+  _currentUser = user;
+  _userId = user.id;
+  $('login-overlay').style.display = 'none';
+  $('header-user').style.display = 'flex';
+  $('user-email-display').textContent = user.email;
+  await syncFromCloud();
+  initApp();
+}
+
+// ============================================================
+// Cloud Sync
+// ============================================================
+const TABLE_MAP = {
+  weight: 'hm_weight_entries',
+  diet: 'hm_diet_entries',
+  exercise: 'hm_exercise_entries',
+  sleep: 'hm_sleep_entries',
+  visits: 'hm_visit_entries',
+  mental: 'hm_mental_entries',
+};
+
+async function syncFromCloud() {
+  if (!_sb || !_currentUser) return;
+  for (const [key, table] of Object.entries(TABLE_MAP)) {
+    try {
+      const { data, error } = await _sb.from(table).select('*').eq('user_id', _currentUser.id);
+      if (error) continue;
+      const entries = data.map(({ user_id, created_at, ...rest }) => rest);
+      save(KEYS[key], entries);
+    } catch(e) {}
+  }
+  try {
+    const { data } = await _sb.from('hm_user_settings').select('settings').eq('user_id', _currentUser.id).single();
+    if (data && data.settings) save(KEYS.settings, data.settings);
+  } catch(e) {}
+  try {
+    const { data } = await _sb.from('hm_karte').select('data').eq('user_id', _currentUser.id).single();
+    if (data && data.data) localStorage.setItem(KEYS.karte, JSON.stringify(data.data));
+  } catch(e) {}
+}
+
+async function sbUpsert(tableKey, entry) {
+  if (!_sb || !_currentUser) return;
+  try { await _sb.from(TABLE_MAP[tableKey]).upsert({ ...entry, user_id: _currentUser.id }); } catch(e) {}
+}
+
+async function sbDelete(tableKey, id) {
+  if (!_sb || !_currentUser) return;
+  try { await _sb.from(TABLE_MAP[tableKey]).delete().eq('id', id).eq('user_id', _currentUser.id); } catch(e) {}
+}
+
+async function sbSaveSettings(settings) {
+  if (!_sb || !_currentUser) return;
+  try { await _sb.from('hm_user_settings').upsert({ user_id: _currentUser.id, settings }); } catch(e) {}
+}
+
+// ============================================================
+// Utilities
+// ============================================================
+const $ = id => document.getElementById(id);
+
+function todayStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function showToast(msg) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// ============================================================
+// Storage helpers
+// ============================================================
+let _userId = 'local';
+
+const KEYS = {
+  get weight()   { return 'hm_weight_'   + _userId; },
+  get diet()     { return 'hm_diet_'     + _userId; },
+  get exercise() { return 'hm_exercise_' + _userId; },
+  get sleep()    { return 'hm_sleep_'    + _userId; },
+  get settings() { return 'hm_settings_' + _userId; },
+  get karte()    { return 'hm_karte_'    + _userId; },
+  get visits()   { return 'hm_visits_'   + _userId; },
+  get mental()   { return 'hm_mental_'   + _userId; },
+};
+
+function load(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || '[]');
+  } catch { return []; }
+}
+
+function loadObj(key) {
+  try {
+    return JSON.parse(localStorage.getItem(key) || '{}');
+  } catch { return {}; }
+}
+
+function save(key, data) {
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+// ============================================================
+// Tab switching
+// ============================================================
+let activeTab = 'weight';
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  $(`panel-${name}`).classList.add('active');
+  $(`tab-${name}`).classList.add('active');
+  activeTab = name;
+
+  // Scroll to top
+  document.querySelector('.tab-content-area').scrollTop = 0;
+
+  // Scroll active tab button into view
+  const activeBtn = $(`tab-${name}`);
+  if (activeBtn) activeBtn.scrollIntoView({ inline: 'center', block: 'nearest' });
+
+  requestAnimationFrame(function() {
+    if (name === 'weight') renderWeight();
+    if (name === 'diet') renderDiet();
+    if (name === 'exercise') renderExercise();
+    if (name === 'sleep') renderSleep();
+    if (name === 'karte') renderKarte();
+    if (name === 'visits') renderVisits();
+    if (name === 'mental') renderMental();
+  });
+}
+
+// ============================================================
+// Canvas Chart drawing
+// ============================================================
+function clearCanvas(canvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+function resizeCanvas(canvas) {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const cssW = rect.width || canvas.offsetWidth || 300;
+  const cssH = parseInt(canvas.getAttribute('height')) || 160;
+  canvas.width = cssW * dpr;
+  canvas.height = cssH * dpr;
+  canvas.style.height = cssH + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  return { ctx, w: cssW, h: cssH };
+}
+
+/**
+ * drawLineChart(canvasId, labels, data, color)
+ * labels: string[], data: number[], color: hex string
+ */
+function drawLineChart(canvasId, labels, data, color) {
+  const canvas = $(canvasId);
+  if (!canvas) return;
+  const { ctx, w, h } = resizeCanvas(canvas);
+
+  if (!data || data.length === 0) {
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('データがありません', w / 2, h / 2);
+    return;
+  }
+
+  const PAD = { top: 16, right: 12, bottom: 36, left: 42 };
+  const cw = w - PAD.left - PAD.right;
+  const ch = h - PAD.top - PAD.bottom;
+
+  const minV = Math.min(...data);
+  const maxV = Math.max(...data);
+  const range = maxV - minV || 1;
+  const lo = minV - range * 0.1;
+  const hi = maxV + range * 0.1;
+
+  function xPos(i) {
+    if (data.length === 1) return PAD.left + cw / 2;
+    return PAD.left + (i / (data.length - 1)) * cw;
+  }
+
+  function yPos(v) {
+    return PAD.top + ch - ((v - lo) / (hi - lo)) * ch;
+  }
+
+  // Grid lines (horizontal)
+  const steps = 4;
+  ctx.strokeStyle = '#f3f4f6';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= steps; i++) {
+    const val = lo + (hi - lo) * (i / steps);
+    const y = yPos(val);
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, y);
+    ctx.lineTo(PAD.left + cw, y);
+    ctx.stroke();
+
+    // Y axis label
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(val.toFixed(1), PAD.left - 4, y + 3.5);
+  }
+
+  // X axis labels
+  const maxLabels = Math.min(labels.length, 7);
+  const step = Math.ceil(labels.length / maxLabels);
+  ctx.fillStyle = '#9ca3af';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  labels.forEach((lb, i) => {
+    if (i % step === 0 || i === labels.length - 1) {
+      ctx.fillText(lb, xPos(i), h - PAD.bottom + 14);
+    }
+  });
+
+  // Gradient fill under line
+  const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + ch);
+  grad.addColorStop(0, color + '40');
+  grad.addColorStop(1, color + '00');
+  ctx.beginPath();
+  ctx.moveTo(xPos(0), yPos(data[0]));
+  data.forEach((v, i) => i > 0 && ctx.lineTo(xPos(i), yPos(v)));
+  ctx.lineTo(xPos(data.length - 1), PAD.top + ch);
+  ctx.lineTo(xPos(0), PAD.top + ch);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(xPos(0), yPos(data[0]));
+  data.forEach((v, i) => i > 0 && ctx.lineTo(xPos(i), yPos(v)));
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.5;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+
+  // Data points
+  data.forEach((v, i) => {
+    ctx.beginPath();
+    ctx.arc(xPos(i), yPos(v), 4, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  });
+}
+
+/**
+ * drawBarChart(canvasId, labels, data, color)
+ */
+function drawBarChart(canvasId, labels, data, color) {
+  const canvas = $(canvasId);
+  if (!canvas) return;
+  const { ctx, w, h } = resizeCanvas(canvas);
+
+  if (!data || data.length === 0) {
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('データがありません', w / 2, h / 2);
+    return;
+  }
+
+  const PAD = { top: 16, right: 12, bottom: 36, left: 42 };
+  const cw = w - PAD.left - PAD.right;
+  const ch = h - PAD.top - PAD.bottom;
+
+  const maxV = Math.max(...data, 1);
+  const hi = maxV * 1.15;
+
+  function yPos(v) {
+    return PAD.top + ch - (v / hi) * ch;
+  }
+
+  // Grid lines
+  const steps = 4;
+  ctx.strokeStyle = '#f3f4f6';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= steps; i++) {
+    const val = (hi / steps) * i;
+    const y = yPos(val);
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, y);
+    ctx.lineTo(PAD.left + cw, y);
+    ctx.stroke();
+
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText(val >= 1000 ? (val / 1000).toFixed(1) + 'k' : Math.round(val), PAD.left - 4, y + 3.5);
+  }
+
+  // Bars
+  const n = data.length;
+  const barW = Math.max(8, (cw / n) * 0.6);
+  const gap = cw / n;
+
+  data.forEach((v, i) => {
+    const x = PAD.left + i * gap + (gap - barW) / 2;
+    const barH = (v / hi) * ch;
+    const y = PAD.top + ch - barH;
+
+    const radius = Math.min(4, barW / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + barW - radius, y);
+    ctx.quadraticCurveTo(x + barW, y, x + barW, y + radius);
+    ctx.lineTo(x + barW, y + barH);
+    ctx.lineTo(x, y + barH);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+
+    ctx.fillStyle = v > 0 ? color : '#e5e7eb';
+    ctx.fill();
+
+    // X label
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(labels[i], x + barW / 2, h - PAD.bottom + 14);
+
+    // Value label on top of bar
+    if (v > 0) {
+      ctx.fillStyle = '#374151';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      var label = v >= 1000 ? (v / 1000).toFixed(1) + 'k' : Math.round(v);
+      ctx.fillText(label, x + barW / 2, y - 4);
+    }
+  });
+}
+
+// ============================================================
+// Date helpers
+// ============================================================
+function getLast7Days() {
+  const days = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    days.push(`${d.getFullYear()}-${m}-${day}`);
+  }
+  return days;
+}
+
+function shortDate(str) {
+  // "2024-01-15" → "1/15"
+  const parts = str.split('-');
+  return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+}
+
+function getWeekRange() {
+  const now = new Date();
+  const day = now.getDay(); // 0=sun
+  const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  const mon = new Date(now.setDate(diff));
+  mon.setHours(0, 0, 0, 0);
+  const sun = new Date(mon);
+  sun.setDate(mon.getDate() + 6);
+  sun.setHours(23, 59, 59, 999);
+  return { start: mon, end: sun };
+}
+
+function dateToStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+// ============================================================
+// Tab 1: Weight / BMI
+// ============================================================
+let sleepRating = 3;
+
+function renderWeight() {
+  const entries = load(KEYS.weight);
+  const settings = loadObj(KEYS.settings);
+
+  // Restore height
+  if (settings.height) $('w-height').value = settings.height;
+
+  // Latest stats
+  const bmiCard = $('w-bmi-card');
+  if (entries.length > 0) {
+    const last = entries[entries.length - 1];
+    $('w-latest-weight').textContent = last.weight;
+    const bmiCard2 = $('w-bmi-card');
+    bmiCard2.style.display = 'block';
+    if (last.height) {
+      const bmi = last.weight / ((last.height / 100) ** 2);
+      $('w-bmi-value').textContent = bmi.toFixed(1);
+      let cls, text;
+      if (bmi < 18.5) { cls = 'bmi-thin'; text = '低体重'; }
+      else if (bmi < 25) { cls = 'bmi-normal'; text = '普通'; }
+      else { cls = 'bmi-fat'; text = '肥満'; }
+      $('w-bmi-badge').innerHTML = `<span class="bmi-badge ${cls}">${text}</span>`;
+    }
+  } else {
+    bmiCard.style.display = 'none';
+  }
+
+  // Chart: last 14 entries
+  const chartData = entries.slice(-14);
+  drawLineChart('chart-weight',
+    chartData.map(e => shortDate(e.date)),
+    chartData.map(e => e.weight),
+    '#10b981'
+  );
+
+  // List
+  const ul = $('w-list');
+  const recent = [...entries].reverse().slice(0, 20);
+  if (recent.length === 0) {
+    ul.innerHTML = '<li class="empty-msg">まだ記録がありません</li>';
+    return;
+  }
+  ul.innerHTML = recent.map(e => {
+    const bmiStr = e.height
+      ? ` | BMI ${(e.weight / ((e.height / 100) ** 2)).toFixed(1)}`
+      : '';
+    return `<li class="entry-item">
+      <div class="entry-info">
+        <div class="entry-main">${e.weight} kg${bmiStr}</div>
+        <div class="entry-sub">${e.date}${e.height ? ` | 身長 ${e.height}cm` : ''}</div>
+      </div>
+      <button class="btn-delete" onclick="deleteWeight('${e.id}')">✕</button>
+    </li>`;
+  }).join('');
+}
+
+function saveWeight() {
+  const date = $('w-date').value;
+  const weight = parseFloat($('w-weight').value);
+  const height = parseFloat($('w-height').value);
+
+  if (!date || isNaN(weight) || weight <= 0) {
+    showToast('⚠️ 日付と体重を入力してください');
+    return;
+  }
+
+  // Save height to settings
+  if (!isNaN(height) && height > 0) {
+    const s = loadObj(KEYS.settings);
+    s.height = height;
+    save(KEYS.settings, s);
+  }
+
+  const entry = { id: uid(), date, weight, height: isNaN(height) ? null : height };
+  const entries = load(KEYS.weight);
+  entries.push(entry);
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  save(KEYS.weight, entries);
+  sbUpsert('weight', entry);
+  showToast('✅ 体重を保存しました');
+  $('w-weight').value = '';
+  renderWeight();
+}
+
+function deleteWeight(id) {
+  save(KEYS.weight, load(KEYS.weight).filter(e => e.id !== id));
+  sbDelete('weight', id);
+  showToast('🗑 削除しました');
+  renderWeight();
+}
+
+// ============================================================
+// Tab 2: Diet / Calories
+// ============================================================
+function renderDiet() {
+  const allEntries = load(KEYS.diet);
+  const settings = loadObj(KEYS.settings);
+  const goal = settings.dietGoal || 2000;
+  $('d-goal').value = goal;
+
+  const today = todayStr();
+  const todayEntries = allEntries.filter(e => e.date === today);
+  const totalCal = todayEntries.reduce((s, e) => s + (e.calories || 0), 0);
+
+  $('d-today-total').textContent = `${totalCal} kcal`;
+  const pct = Math.min((totalCal / goal) * 100, 100);
+  const bar = $('d-progress-bar');
+  bar.style.width = pct + '%';
+  bar.className = 'progress-bar' + (totalCal > goal ? ' over' : '');
+  $('d-progress-text').textContent = `${totalCal} / ${goal} kcal`;
+
+  // Today's meal list grouped by type
+  const mealTypes = ['朝食', '昼食', '夕食', '間食'];
+  const mealIcons = { '朝食': '🌅', '昼食': '☀️', '夕食': '🌙', '間食': '🍪' };
+  const mealsBox = $('d-today-meals');
+  if (todayEntries.length === 0) {
+    mealsBox.innerHTML = '<p class="empty-msg" style="padding:8px 0">今日の食事はまだ記録されていません</p>';
+    $('d-today-total-row').style.display = 'none';
+  } else {
+    let html = '';
+    mealTypes.forEach(function(type) {
+      const items = todayEntries.filter(e => e.type === type);
+      if (items.length === 0) return;
+      const subTotal = items.reduce((s, e) => s + (e.calories || 0), 0);
+      html += `<div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1.5px solid var(--primary-light)">
+          <span style="font-size:13px;font-weight:700;color:var(--text-muted)">${mealIcons[type]} ${type}</span>
+          <span style="font-size:13px;font-weight:700;color:var(--primary)">${subTotal} kcal</span>
+        </div>
+        <ul class="entry-list" style="margin-top:2px">` +
+        items.map(e => `<li class="entry-item">
+          <div class="entry-info">
+            <div class="entry-main">${e.food}</div>
+            <div class="entry-sub">${e.calories} kcal</div>
+          </div>
+          <button class="btn-delete" onclick="deleteDiet('${e.id}')">✕</button>
+        </li>`).join('') +
+        `</ul></div>`;
+    });
+    mealsBox.innerHTML = html;
+    $('d-meal-total').textContent = totalCal + ' kcal';
+    $('d-today-total-row').style.display = 'flex';
+  }
+
+  // 7-day bar chart
+  const days = getLast7Days();
+  const dailyTotals = days.map(d =>
+    allEntries.filter(e => e.date === d).reduce((s, e) => s + (e.calories || 0), 0)
+  );
+  drawBarChart('chart-diet', days.map(shortDate), dailyTotals, '#10b981');
+}
+
+function saveDiet() {
+  const date = $('d-date').value;
+  const type = $('d-type').value;
+  const food = $('d-food').value.trim();
+  const calories = parseInt($('d-cal').value);
+
+  if (!date || !food || isNaN(calories) || calories < 0) {
+    showToast('⚠️ すべての項目を入力してください');
+    return;
+  }
+
+  const entry = { id: uid(), date, type, food, calories };
+  const entries = load(KEYS.diet);
+  entries.push(entry);
+  save(KEYS.diet, entries);
+  sbUpsert('diet', entry);
+  showToast('✅ 食事を保存しました');
+  $('d-food').value = '';
+  $('d-cal').value = '';
+  renderDiet();
+}
+
+function deleteDiet(id) {
+  save(KEYS.diet, load(KEYS.diet).filter(e => e.id !== id));
+  sbDelete('diet', id);
+  showToast('🗑 削除しました');
+  renderDiet();
+}
+
+function saveDietGoal() {
+  const v = parseInt($('d-goal').value);
+  if (!isNaN(v) && v > 0) {
+    const s = loadObj(KEYS.settings);
+    s.dietGoal = v;
+    save(KEYS.settings, s);
+    sbSaveSettings(s);
+    renderDiet();
+  }
+}
+
+// ============================================================
+// Tab 3: Exercise
+// ============================================================
+function renderExercise() {
+  const entries = load(KEYS.exercise);
+
+  // Weekly summary
+  const { start, end } = getWeekRange();
+  const weekEntries = entries.filter(e => {
+    const d = new Date(e.date + 'T00:00:00');
+    return d >= start && d <= end;
+  });
+  const totalDuration = weekEntries.reduce((s, e) => s + (e.duration || 0), 0);
+  const totalBurn = weekEntries.reduce((s, e) => s + (e.burned || 0), 0);
+  $('e-week-duration').textContent = totalDuration;
+  $('e-week-cal').textContent = totalBurn;
+
+  // 7-day charts
+  const days = getLast7Days();
+  const labels = days.map(shortDate);
+  const dailyDurations = days.map(d =>
+    entries.filter(e => e.date === d).reduce((s, e) => s + (e.duration || 0), 0)
+  );
+  const dailyCalories = days.map(d =>
+    entries.filter(e => e.date === d).reduce((s, e) => s + (e.burned || 0), 0)
+  );
+  const dailySteps = days.map(d =>
+    entries.filter(e => e.date === d).reduce((s, e) => s + (e.steps || 0), 0)
+  );
+  drawBarChart('chart-exercise', labels, dailyDurations, '#6366f1');
+  drawBarChart('chart-exercise-cal', labels, dailyCalories, '#f97316');
+  drawBarChart('chart-exercise-steps', labels, dailySteps, '#06b6d4');
+
+  // Recent list
+  const ul = $('e-list');
+  const recent = [...entries].reverse().slice(0, 20);
+  if (recent.length === 0) {
+    ul.innerHTML = '<li class="empty-msg">まだ記録がありません</li>';
+    return;
+  }
+  ul.innerHTML = recent.map(e =>
+    `<li class="entry-item">
+      <div class="entry-info">
+        <div class="entry-main">${e.type} <span style="color:#6366f1">${e.duration}分</span>${e.steps ? ` | ${e.steps.toLocaleString()}歩` : ''}${e.burned ? ` | 🔥${e.burned}kcal` : ''}</div>
+        <div class="entry-sub">${e.date}</div>
+      </div>
+      <button class="btn-delete" onclick="deleteExercise('${e.id}')">✕</button>
+    </li>`
+  ).join('');
+}
+
+function saveExercise() {
+  const date = $('e-date').value;
+  const type = $('e-type').value;
+  const duration = parseInt($('e-duration').value);
+
+  if (!date || isNaN(duration) || duration <= 0) {
+    showToast('⚠️ 日付と時間を入力してください');
+    return;
+  }
+
+  const burned = calcExerciseCal();
+  const steps = parseInt($('e-steps').value) || 0;
+  const entry = { id: uid(), date, type, duration, burned, steps };
+
+  const entries = load(KEYS.exercise);
+  entries.push(entry);
+  save(KEYS.exercise, entries);
+  sbUpsert('exercise', entry);
+  showToast('✅ 運動を保存しました');
+  $('e-duration').value = '';
+  $('e-steps').value = '';
+  $('e-cal-preview').style.display = 'none';
+  renderExercise();
+}
+
+function deleteExercise(id) {
+  save(KEYS.exercise, load(KEYS.exercise).filter(e => e.id !== id));
+  sbDelete('exercise', id);
+  showToast('🗑 削除しました');
+  renderExercise();
+}
+
+// ============================================================
+// Tab 4: Sleep
+// ============================================================
+function setSleepRating(val) {
+  sleepRating = val;
+  document.querySelectorAll('#s-stars .star').forEach(s => {
+    s.classList.toggle('filled', parseInt(s.dataset.val) <= val);
+  });
+}
+
+function calcSleepDuration(bed, wake) {
+  // bed and wake are "HH:MM" strings
+  const [bh, bm] = bed.split(':').map(Number);
+  const [wh, wm] = wake.split(':').map(Number);
+  let mins = (wh * 60 + wm) - (bh * 60 + bm);
+  if (mins < 0) mins += 24 * 60; // crossed midnight
+  return mins / 60; // hours
+}
+
+function updateSleepPreview() {
+  const bed = $('s-bed').value;
+  const wake = $('s-wake').value;
+  const preview = $('s-preview');
+  if (bed && wake) {
+    const h = calcSleepDuration(bed, wake);
+    preview.style.display = 'block';
+    preview.textContent = `睡眠時間: ${h.toFixed(1)}時間`;
+  } else {
+    preview.style.display = 'none';
+  }
+}
+
+function renderSleep() {
+  const entries = load(KEYS.sleep);
+
+  // Stats
+  if (entries.length > 0) {
+    const avgDur = entries.reduce((s, e) => s + (e.duration || 0), 0) / entries.length;
+    const avgQual = entries.reduce((s, e) => s + (e.quality || 3), 0) / entries.length;
+    $('s-avg-duration').textContent = avgDur.toFixed(1);
+    $('s-avg-quality').textContent = avgQual.toFixed(1) + ' ★';
+  } else {
+    $('s-avg-duration').textContent = '--';
+    $('s-avg-quality').textContent = '--';
+  }
+
+  // Chart: last 14 entries
+  const chartData = entries.slice(-14);
+  drawLineChart('chart-sleep',
+    chartData.map(e => shortDate(e.date)),
+    chartData.map(e => e.duration),
+    '#8b5cf6'
+  );
+
+  // Recent list
+  const ul = $('s-list');
+  const recent = [...entries].reverse().slice(0, 20);
+  if (recent.length === 0) {
+    ul.innerHTML = '<li class="empty-msg">まだ記録がありません</li>';
+    return;
+  }
+  ul.innerHTML = recent.map(e => {
+    const stars = '★'.repeat(e.quality || 3) + '☆'.repeat(5 - (e.quality || 3));
+    return `<li class="entry-item">
+      <div class="entry-info">
+        <div class="entry-main">${e.duration.toFixed(1)}時間 <span style="color:#f59e0b">${stars}</span></div>
+        <div class="entry-sub">${e.date} | ${e.bedtime || '--'} → ${e.waketime || '--'}</div>
+      </div>
+      <button class="btn-delete" onclick="deleteSleep('${e.id}')">✕</button>
+    </li>`;
+  }).join('');
+}
+
+function saveSleep() {
+  const date = $('s-date').value;
+  const bed = $('s-bed').value;
+  const wake = $('s-wake').value;
+
+  if (!date || !bed || !wake) {
+    showToast('⚠️ 日付・就寝・起床時刻を入力してください');
+    return;
+  }
+
+  const duration = calcSleepDuration(bed, wake);
+  const entry = { id: uid(), date, bedtime: bed, waketime: wake, duration, quality: sleepRating };
+  const entries = load(KEYS.sleep);
+  entries.push(entry);
+  entries.sort((a, b) => a.date.localeCompare(b.date));
+  save(KEYS.sleep, entries);
+  sbUpsert('sleep', entry);
+  showToast('✅ 睡眠を保存しました');
+  $('s-bed').value = '';
+  $('s-wake').value = '';
+  $('s-preview').style.display = 'none';
+  setSleepRating(3);
+  renderSleep();
+}
+
+function deleteSleep(id) {
+  save(KEYS.sleep, load(KEYS.sleep).filter(e => e.id !== id));
+  sbDelete('sleep', id);
+  showToast('🗑 削除しました');
+  renderSleep();
+}
+
+// ============================================================
+// Claude API - Food Photo Analysis
+// ============================================================
+function saveApiKey() {
+  const key = $('claude-api-key').value.trim();
+  const s = loadObj(KEYS.settings);
+  s.claudeApiKey = key;
+  save(KEYS.settings, s);
+  sbSaveSettings(s);
+}
+
+function toggleApiKeySection() {
+  const section = $('api-key-section');
+  const collapsed = $('api-key-collapsed');
+  if (section.style.display === 'none') {
+    section.style.display = 'block';
+    collapsed.style.display = 'none';
+  } else {
+    section.style.display = 'none';
+    collapsed.style.display = 'block';
+  }
+}
+
+function showPhotoError(msg) {
+  const box = $('analyzed-items-box');
+  box.style.display = 'block';
+  box.style.background = '#fee2e2';
+  box.style.border = '1.5px solid #fca5a5';
+  $('analyzed-items-list').innerHTML =
+    `<p style="font-size:13px;color:#991b1b;word-break:break-all;white-space:pre-wrap;margin:0">${msg}</p>`;
+}
+
+var _lastPhotoFile = null;
+
+function handlePhotoSelect(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  _lastPhotoFile = file;
+
+  const img = $('photo-preview-img');
+  $('photo-placeholder').style.display = 'none';
+  img.style.display = 'block';
+  $('reanalyze-btn').style.display = 'none';
+
+  // Preview: object URL (no size limit)
+  if (img._previewUrl) URL.revokeObjectURL(img._previewUrl);
+  img._previewUrl = URL.createObjectURL(file);
+  img.src = img._previewUrl;
+
+  compressFile(file);
+}
+
+function compressFile(file) {
+  if (typeof createImageBitmap !== 'undefined') {
+    createImageBitmap(file).then(function(bitmap) {
+      try {
+        const MAX = 800;
+        let w = bitmap.width, h = bitmap.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+          else { w = Math.round(w * MAX / h); h = MAX; }
+        }
+        const cv = document.createElement('canvas');
+        cv.width = w; cv.height = h;
+        cv.getContext('2d').drawImage(bitmap, 0, 0, w, h);
+        bitmap.close();
+        callClaudeAPI(cv.toDataURL('image/jpeg', 0.7).split(',')[1]);
+      } catch (e) {
+        showPhotoError('圧縮エラー: ' + e.message);
+      }
+    }).catch(function(e) {
+      showPhotoError('画像の読み込みに失敗しました: ' + e.message);
+    });
+  } else {
+    // Fallback for older browsers
+    const reader = new FileReader();
+    reader.onerror = () => showPhotoError('ファイルの読み込みに失敗しました');
+    reader.onload = function(e) {
+      const el = new Image();
+      el.onerror = () => showPhotoError('画像の読み込みに失敗しました');
+      el.onload = function() {
+        try {
+          const MAX = 800;
+          let w = el.naturalWidth, h = el.naturalHeight;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+            else { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const cv = document.createElement('canvas');
+          cv.width = w; cv.height = h;
+          cv.getContext('2d').drawImage(el, 0, 0, w, h);
+          callClaudeAPI(cv.toDataURL('image/jpeg', 0.7).split(',')[1]);
+        } catch (e) { showPhotoError('圧縮エラー: ' + e.message); }
+      };
+      el.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+}
+
+function compressAndAnalyze() {
+  if (_lastPhotoFile) { compressFile(_lastPhotoFile); return; }
+  showPhotoError('元の画像ファイルが見つかりません。再度選択してください。');
+}
+
+function callClaudeAPI(base64) {
+  const settings = loadObj(KEYS.settings);
+  const apiKey = (settings.claudeApiKey || '').trim();
+
+  if (!apiKey) {
+    showPhotoError('APIキーが設定されていません。\n黄色のエリアにAPIキーを入力してください。');
+    $('api-key-section').style.display = 'block';
+    $('api-key-collapsed').style.display = 'none';
+    return;
+  }
+
+  const overlay = $('analyzing-overlay');
+  overlay.classList.add('show');
+
+  const body = JSON.stringify({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 512,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: base64 } },
+        { type: 'text', text: 'この写真の食べ物を分析。同じ食品は一つにまとめ重複させない（例：白米とごはんは同じ）。JSON形式のみ返答: {"foods":[{"name":"食品名","calories":数値}]}' }
+      ]
+    }]
+  });
+
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+      'content-type': 'application/json'
+    },
+    body: body
+  })
+  .then(function(res) {
+    if (!res.ok) {
+      return res.text().then(function(t) {
+        throw new Error('HTTP ' + res.status + ': ' + t.slice(0, 200));
+      });
+    }
+    return res.json();
+  })
+  .then(function(data) {
+    const text = data.content[0].text.trim();
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('JSONが見つかりません: ' + text.slice(0, 100));
+    const result = JSON.parse(match[0]);
+    const foods = result.foods || [];
+    if (foods.length === 0) { showPhotoError('食品を検出できませんでした'); return; }
+
+    const box = $('analyzed-items-box');
+    box.style.display = 'block';
+    box.style.background = '';
+    box.style.border = '';
+    $('analyzed-items-list').innerHTML = foods.map(function(f, i) {
+      return '<div id="aitem-' + i + '" style="border-bottom:1px solid rgba(16,185,129,0.2);padding:10px 0">' +
+        '<div style="display:flex;gap:6px;align-items:flex-end">' +
+        '<div style="flex:1"><div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">食品名</div>' +
+        '<input type="text" id="aname-' + i + '" value="' + f.name.replace(/"/g,'&quot;') + '" placeholder="食品名" ' +
+        'oninput="scheduleCalLookup(' + i + ')" ' +
+        'style="width:100%;padding:7px 8px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;background:#fff"></div>' +
+        '<div style="min-width:72px"><div style="font-size:10px;color:var(--text-muted);margin-bottom:3px">kcal</div>' +
+        '<input type="number" id="acal-' + i + '" value="' + f.calories + '" placeholder="kcal" min="0" ' +
+        'style="width:72px;padding:7px 6px;font-size:14px;border:1.5px solid var(--border);border-radius:8px;background:#fff"></div>' +
+        '<button onclick="saveAnalyzedFood(getEditedName(' + i + '),getEditedCal(' + i + '))" ' +
+        'style="background:var(--primary);color:#fff;border:none;border-radius:8px;padding:7px 10px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;height:36px">保存</button>' +
+        '</div></div>';
+    }).join('');
+    showToast('✅ ' + foods.length + '品目を検出しました');
+  })
+  .catch(function(err) {
+    var msg = '❌ エラー\n種類: ' + (err.name || '不明') + '\n内容: ' + (err.message || '(空)');
+    showPhotoError(msg);
+  })
+  .finally(function() {
+    overlay.classList.remove('show');
+    if ($('photo-preview-img').src) $('reanalyze-btn').style.display = 'block';
+  });
+}
+
+function reanalyzePhoto() {
+  $('reanalyze-btn').style.display = 'none';
+  $('analyzed-items-box').style.display = 'none';
+  compressAndAnalyze();
+}
+
+function toggleEditItem(idx) {
+  var row = $('aedit-' + idx);
+  row.classList.toggle('show');
+}
+
+var _calLookupTimers = {};
+
+var _foodFormTimer = null;
+function scheduleFoodCalLookup() {
+  clearTimeout(_foodFormTimer);
+  _foodFormTimer = setTimeout(function() {
+    var name = $('d-food').value.trim();
+    if (!name) return;
+    var settings = loadObj(KEYS.settings);
+    var apiKey = (settings.claudeApiKey || '').trim();
+    if (!apiKey) return;
+    var calEl = $('d-cal');
+    calEl.style.background = '#fef9c3';
+    calEl.placeholder = '取得中...';
+    fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 32,
+        messages: [{ role: 'user', content: '「' + name + '」1人前の推定カロリーを整数のみで答えてください（単位不要）。例: 350' }]
+      })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var text = (data.content && data.content[0] && data.content[0].text) || '0';
+      var m = text.match(/\d+/);
+      var cal = m ? parseInt(m[0]) : 0;
+      if (!isNaN(cal) && cal > 0) {
+        calEl.value = cal;
+        calEl.style.background = '#d1fae5';
+        setTimeout(function() { calEl.style.background = ''; }, 1000);
+      }
+    })
+    .catch(function() {})
+    .finally(function() { calEl.placeholder = 'kcal'; });
+  }, 800);
+}
+function scheduleCalLookup(idx) {
+  clearTimeout(_calLookupTimers[idx]);
+  _calLookupTimers[idx] = setTimeout(function() { autoFetchCal(idx); }, 800);
+}
+
+function autoFetchCal(idx) {
+  var nameEl = $('aname-' + idx);
+  var calEl  = $('acal-' + idx);
+  if (!nameEl || !calEl) return;
+  var foodName = nameEl.value.trim();
+  if (!foodName) return;
+
+  var settings = loadObj(KEYS.settings);
+  var apiKey = (settings.claudeApiKey || '').trim();
+  if (!apiKey) return;
+
+  calEl.style.background = '#fef9c3';
+  calEl.placeholder = '取得中...';
+
+  fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 32,
+      messages: [{ role: 'user', content: '「' + foodName + '」1人前の推定カロリーを整数のみで答えてください（単位不要）。例: 350' }]
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var text = (data.content && data.content[0] && data.content[0].text) || '0';
+    var m = text.match(/\d+/);
+    var cal = m ? parseInt(m[0]) : 0;
+    if (!isNaN(cal) && cal > 0) {
+      calEl.value = cal;
+      calEl.style.background = '#d1fae5';
+      setTimeout(function() { calEl.style.background = ''; }, 1000);
+    }
+  })
+  .catch(function() {})
+  .finally(function() { calEl.placeholder = 'kcal'; });
+}
+
+function getEditedName(idx) {
+  var el = $('aname-' + idx);
+  return el ? el.value.trim() : '';
+}
+
+function getEditedCal(idx) {
+  var el = $('acal-' + idx);
+  return el ? (parseInt(el.value) || 0) : 0;
+}
+
+function applyAnalyzedFood(name, calories) {
+  $('d-food').value = name;
+  $('d-cal').value = calories;
+  showToast('📝 「' + name + '」を入力しました');
+}
+
+function saveAnalyzedFood(name, calories) {
+  if (!name) { showToast('⚠️ 食品名を確認してください'); return; }
+  $('d-food').value = name;
+  $('d-cal').value = calories || '';
+  $('d-food').style.background = '#d1fae5';
+  $('d-cal').style.background = '#d1fae5';
+  setTimeout(function() {
+    $('d-food').style.background = '';
+    $('d-cal').style.background = '';
+  }, 1200);
+  showToast('✅ 「' + name + '」をフォームに入力しました。食事タイプを確認して保存してください。');
+}
+
+// ============================================================
+// Exercise Calorie Calculator
+// ============================================================
+// MET values
+const EXERCISE_MET = { '徒歩': 3.5, 'ランニング': 8.0, '筋トレ': 5.0 };
+// kcal per step (for 60kg base; scaled by user weight)
+const STEPS_KCAL = { '徒歩': 0.040, 'ランニング': 0.075 };
+
+function getBodyWeight() {
+  const entries = load(KEYS.weight);
+  if (entries.length > 0) return entries[entries.length - 1].weight || 60;
+  return 60;
+}
+
+function calcExerciseCal() {
+  const type = $('e-type').value;
+  const duration = parseFloat($('e-duration').value) || 0;
+  const steps = parseFloat($('e-steps').value) || 0;
+  const weight = getBodyWeight();
+
+  if (duration <= 0) {
+    $('e-cal-preview').style.display = 'none';
+    return 0;
+  }
+
+  let cal = 0;
+  if (steps > 0 && STEPS_KCAL[type]) {
+    // Steps-based calculation (more accurate)
+    cal = Math.round(steps * STEPS_KCAL[type] * (weight / 60));
+  } else {
+    // MET-based calculation
+    const met = EXERCISE_MET[type] || 4.0;
+    cal = Math.round(met * weight * (duration / 60));
+  }
+
+  $('e-cal-val').textContent = cal;
+  $('e-cal-preview').style.display = 'block';
+  return cal;
+}
+
+function updateExerciseCalcUI() {
+  const type = $('e-type').value;
+  const stepsGroup = $('e-steps-group');
+  // Show steps input only for 徒歩 and ランニング
+  stepsGroup.style.display = (type === '筋トレ') ? 'none' : '';
+  if (type === '筋トレ') $('e-steps').value = '';
+  calcExerciseCal();
+}
+
+// ============================================================
+// Init
+// ============================================================
+// ============================================================
+// カルテ (Medical Records)
+// ============================================================
+function loadKarte() {
+  try { return JSON.parse(localStorage.getItem(KEYS.karte) || '{}'); } catch { return {}; }
+}
+function saveKarteData(k) { localStorage.setItem(KEYS.karte, JSON.stringify(k)); sbSaveKarte(k); }
+
+async function sbSaveKarte(k) {
+  if (!_sb || !_currentUser) return;
+  try { await _sb.from('hm_karte').upsert({ user_id: _currentUser.id, data: k }); } catch(e) {}
+}
+
+function renderKarte() {
+  const k = loadKarte();
+  renderTags('k-conditions-list', k.conditions || [], 'conditions');
+  renderTags('k-allergies-list', k.allergies || [], 'allergies');
+  renderMedList(k.medications || []);
+  renderHistList(k.history || []);
+  renderPeriodRecords(k.periodRecords || []);
+
+  if (k.period) {
+    $('k-period-last').value = k.period.lastDate || '';
+    $('k-period-cycle').value = k.period.cycleLen || 28;
+    $('k-period-dur').value = k.period.duration || 5;
+    updatePeriodPrediction(k.period);
+  }
+  if (k.dental) {
+    $('k-dental-last').value = k.dental.lastCleaning || '';
+    $('k-dental-next').value = k.dental.nextAppt || '';
+    $('k-dental-notes').value = k.dental.notes || '';
+    updateDentalStatus(k.dental);
+  }
+}
+
+function renderTags(listId, arr, field) {
+  const el = $(listId);
+  if (!el) return;
+  if (arr.length === 0) { el.innerHTML = '<span style="font-size:12px;color:var(--text-muted)">未登録</span>'; return; }
+  el.innerHTML = arr.map((t, i) =>
+    `<span class="tag">${t}<button class="tag-del" onclick="removeKarteTag('${field}',${i})">×</button></span>`
+  ).join('');
+}
+
+function addKarteTag(field, inputId) {
+  const val = $(inputId).value.trim();
+  if (!val) return;
+  const k = loadKarte();
+  if (!k[field]) k[field] = [];
+  if (!k[field].includes(val)) { k[field].push(val); saveKarteData(k); }
+  $(inputId).value = '';
+  renderKarte();
+}
+
+function removeKarteTag(field, idx) {
+  const k = loadKarte();
+  k[field].splice(idx, 1);
+  saveKarteData(k);
+  renderKarte();
+}
+
+function saveMedication() {
+  const name = $('k-med-name').value.trim();
+  if (!name) { showToast('⚠️ 薬の名前を入力してください'); return; }
+  const k = loadKarte();
+  if (!k.medications) k.medications = [];
+  k.medications.push({ id: uid(), name, dose: $('k-med-dose').value.trim(), freq: $('k-med-freq').value, startDate: $('k-med-start').value, notes: $('k-med-notes').value.trim() });
+  saveKarteData(k);
+  $('k-med-name').value = ''; $('k-med-dose').value = ''; $('k-med-notes').value = ''; $('k-med-start').value = '';
+  renderKarte();
+  showToast('✅ 薬を追加しました');
+}
+
+function deleteMedication(id) {
+  const k = loadKarte();
+  k.medications = (k.medications || []).filter(m => m.id !== id);
+  saveKarteData(k); renderKarte();
+  showToast('🗑 削除しました');
+}
+
+function renderMedList(meds) {
+  const ul = $('k-med-list');
+  if (!ul) return;
+  if (meds.length === 0) { ul.innerHTML = '<li class="empty-msg">薬の記録なし</li>'; return; }
+  ul.innerHTML = meds.map(m => `<li class="entry-item">
+    <div class="entry-info">
+      <div class="entry-main">💊 ${m.name} ${m.dose ? `(${m.dose})` : ''}</div>
+      <div class="entry-sub">${m.freq}${m.startDate ? ' · ' + m.startDate + '〜' : ''}${m.notes ? ' · ' + m.notes : ''}</div>
+    </div>
+    <button class="btn-delete" onclick="deleteMedication('${m.id}')">✕</button>
+  </li>`).join('');
+}
+
+function saveHistory() {
+  const cond = $('k-hist-cond').value.trim();
+  const date = $('k-hist-date').value;
+  if (!cond) { showToast('⚠️ 病名を入力してください'); return; }
+  const k = loadKarte();
+  if (!k.history) k.history = [];
+  k.history.unshift({ id: uid(), date, condition: cond, notes: $('k-hist-notes').value.trim() });
+  saveKarteData(k);
+  $('k-hist-cond').value = ''; $('k-hist-notes').value = '';
+  renderKarte(); showToast('✅ 病歴を追加しました');
+}
+
+function deleteHistory(id) {
+  const k = loadKarte();
+  k.history = (k.history || []).filter(h => h.id !== id);
+  saveKarteData(k); renderKarte(); showToast('🗑 削除しました');
+}
+
+function renderHistList(hist) {
+  const ul = $('k-hist-list');
+  if (!ul) return;
+  if (hist.length === 0) { ul.innerHTML = '<li class="empty-msg">病歴なし</li>'; return; }
+  ul.innerHTML = hist.map(h => `<li class="entry-item">
+    <div class="entry-info">
+      <div class="entry-main">📋 ${h.condition}</div>
+      <div class="entry-sub">${h.date || '日付未設定'}${h.notes ? ' · ' + h.notes : ''}</div>
+    </div>
+    <button class="btn-delete" onclick="deleteHistory('${h.id}')">✕</button>
+  </li>`).join('');
+}
+
+function savePeriod() {
+  const lastDate = $('k-period-last').value;
+  const cycleLen = parseInt($('k-period-cycle').value) || 28;
+  const duration = parseInt($('k-period-dur').value) || 5;
+  const k = loadKarte();
+  k.period = { lastDate, cycleLen, duration };
+  saveKarteData(k);
+  updatePeriodPrediction(k.period);
+  showToast('✅ 生理情報を保存しました');
+}
+
+function updatePeriodPrediction(p) {
+  const box = $('k-period-next');
+  const txt = $('k-period-next-text');
+  if (!p || !p.lastDate) { if (box) box.style.display = 'none'; return; }
+  const last = new Date(p.lastDate + 'T00:00:00');
+  const next = new Date(last);
+  next.setDate(next.getDate() + (p.cycleLen || 28));
+  const end = new Date(next);
+  end.setDate(end.getDate() + (p.duration || 5) - 1);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = Math.round((next - today) / 86400000);
+  const fmt = d => `${d.getMonth()+1}/${d.getDate()}`;
+  let msg = `🌸 次回予測：${fmt(next)}〜${fmt(end)}`;
+  if (diff > 0) msg += ` （あと${diff}日）`;
+  else if (diff === 0) msg += ' （本日頃）';
+  else msg += ' （生理中かも）';
+  if (box) { box.style.display = 'block'; txt.textContent = msg; }
+}
+
+function savePeriodRecord() {
+  const date = $('k-prec-date').value;
+  const days = parseInt($('k-prec-days').value) || 0;
+  if (!date) { showToast('⚠️ 日付を入力してください'); return; }
+  const k = loadKarte();
+  if (!k.periodRecords) k.periodRecords = [];
+  k.periodRecords.unshift({ id: uid(), date, days, notes: $('k-prec-notes').value.trim() });
+  saveKarteData(k);
+  $('k-prec-date').value = ''; $('k-prec-days').value = ''; $('k-prec-notes').value = '';
+  renderKarte(); showToast('✅ 生理を記録しました');
+}
+
+function deletePeriodRecord(id) {
+  const k = loadKarte(); k.periodRecords = (k.periodRecords||[]).filter(r=>r.id!==id);
+  saveKarteData(k); renderKarte();
+}
+
+function renderPeriodRecords(records) {
+  const ul = $('k-prec-list');
+  if (!ul) return;
+  if (records.length === 0) { ul.innerHTML = '<li class="empty-msg">記録なし</li>'; return; }
+  ul.innerHTML = records.slice(0,10).map(r => `<li class="entry-item">
+    <div class="entry-info"><div class="entry-main">🌸 ${r.date}</div>
+    <div class="entry-sub">${r.days ? r.days+'日間' : ''}${r.notes ? ' · '+r.notes : ''}</div></div>
+    <button class="btn-delete" onclick="deletePeriodRecord('${r.id}')">✕</button>
+  </li>`).join('');
+}
+
+function saveDental() {
+  const k = loadKarte();
+  k.dental = { lastCleaning: $('k-dental-last').value, nextAppt: $('k-dental-next').value, notes: $('k-dental-notes').value.trim() };
+  saveKarteData(k);
+  updateDentalStatus(k.dental);
+  showToast('✅ 歯の情報を保存しました');
+}
+
+function updateDentalStatus(d) {
+  const el = $('k-dental-status');
+  if (!el || !d) return;
+  let html = '';
+  if (d.nextAppt) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const next = new Date(d.nextAppt + 'T00:00:00');
+    const diff = Math.round((next - today) / 86400000);
+    const color = diff < 0 ? 'var(--danger)' : diff < 7 ? 'var(--warning)' : 'var(--primary)';
+    html = `<div style="padding:10px;background:var(--bg);border-radius:8px;font-size:13px">
+      🦷 次回予約：<strong style="color:${color}">${d.nextAppt}${diff >= 0 ? '（あと'+diff+'日）' : '（過去）'}</strong>
+      ${d.notes ? '<br><span style="color:var(--text-muted)">'+d.notes+'</span>' : ''}
+    </div>`;
+  }
+  el.innerHTML = html;
+}
+
+// ============================================================
+// 通院管理 (Hospital Visits)
+// ============================================================
+function renderVisits() {
+  const visits = load(KEYS.visits);
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Upcoming
+  const upcoming = visits.filter(v => v.nextDate).map(v => ({ ...v, _diff: Math.round((new Date(v.nextDate+'T00:00:00') - today) / 86400000) }))
+    .filter(v => v._diff >= 0).sort((a,b) => a._diff - b._diff);
+  const upEl = $('v-upcoming-list');
+  if (upcoming.length === 0) {
+    upEl.innerHTML = '<p class="empty-msg">次回予約なし</p>';
+  } else {
+    upEl.innerHTML = upcoming.map(v => `<div class="next-appt-box">
+      <div><div style="font-size:13px;font-weight:700">🏥 ${v.hospital}</div>
+      <div class="na-info">${v.nextDate} · ${v.dept || ''}</div></div>
+      <div class="na-days">あと${v._diff}日</div>
+    </div>`).join('');
+  }
+
+  // History
+  const listEl = $('v-list');
+  if (visits.length === 0) { listEl.innerHTML = '<p class="empty-msg">通院記録なし</p>'; return; }
+  listEl.innerHTML = [...visits].reverse().map(v => `<div class="visit-card">
+    <div class="vc-top">
+      <div>
+        <div class="vc-hospital">🏥 ${v.hospital || '病院名未設定'}</div>
+        <div class="vc-date">${v.date}${v.dept ? ' · '+v.dept : ''}${v.doctor ? ' · '+v.doctor : ''}</div>
+      </div>
+      <button class="btn-delete" onclick="deleteVisit('${v.id}')">✕</button>
+    </div>
+    ${v.symptoms ? `<div class="vc-row">🤒 症状：${v.symptoms}</div>` : ''}
+    ${v.diagnosis ? `<div class="vc-row">📋 診断：${v.diagnosis}</div>` : ''}
+    ${v.prescription ? `<div class="vc-row">💊 処方：${v.prescription}</div>` : ''}
+    ${v.nextDate ? `<div class="vc-row">📅 次回：${v.nextDate}</div>` : ''}
+  </div>`).join('');
+}
+
+function saveVisit() {
+  const date = $('v-date').value;
+  const hospital = $('v-hospital').value.trim();
+  if (!date || !hospital) { showToast('⚠️ 日付と病院名を入力してください'); return; }
+  const entry = { id: uid(), date, hospital, dept: $('v-dept').value.trim(), doctor: $('v-doctor').value.trim(),
+    symptoms: $('v-symptoms').value.trim(), diagnosis: $('v-diagnosis').value.trim(),
+    prescription: $('v-prescription').value.trim(), nextDate: $('v-nextdate').value };
+  const entries = load(KEYS.visits);
+  entries.push(entry);
+  save(KEYS.visits, entries);
+  sbUpsert('visits', entry);
+  ['v-hospital','v-dept','v-doctor','v-symptoms','v-diagnosis','v-prescription'].forEach(id => $(id).value = '');
+  $('v-nextdate').value = '';
+  renderVisits(); showToast('✅ 通院記録を保存しました');
+}
+
+function deleteVisit(id) {
+  save(KEYS.visits, load(KEYS.visits).filter(e => e.id !== id));
+  sbDelete('visits', id);
+  renderVisits(); showToast('🗑 削除しました');
+}
+
+// ============================================================
+// メンタルヘルス (Mental Health)
+// ============================================================
+let _selectedMood = 3;
+const _phqAnswers = { q1: 0, q2: 0 };
+const MOOD_LABELS = { 1:'最悪😢', 2:'悪い😔', 3:'普通😐', 4:'良い😊', 5:'最高😄' };
+
+function selectMood(val) {
+  _selectedMood = val;
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.toggle('selected', parseInt(b.dataset.mood) === val));
+  $('m-mood-label').textContent = MOOD_LABELS[val];
+}
+
+function selectPhq(q, val) {
+  _phqAnswers[q] = val;
+  document.querySelectorAll(`#phq-${q} .phq-opt`).forEach((b, i) => b.classList.toggle('selected', i === val));
+  const score = _phqAnswers.q1 + _phqAnswers.q2;
+  const res = $('phq-result');
+  res.style.display = 'block';
+  if (score <= 1) { res.style.background = '#d1fae5'; res.style.color = '#065f46'; res.textContent = `スコア${score}：問題なし。良い状態です ✅`; }
+  else if (score <= 3) { res.style.background = '#fef9c3'; res.style.color = '#854d0e'; res.textContent = `スコア${score}：軽度の可能性。生活習慣を見直してみましょう ⚠️`; }
+  else { res.style.background = '#fee2e2'; res.style.color = '#991b1b'; res.textContent = `スコア${score}：専門家への相談をおすすめします 🏥`; }
+}
+
+function getHabitScore() {
+  const ids = ['h-water','h-sun','h-exercise','h-social','h-screen','h-meditation','h-alcohol','h-veg'];
+  return ids.filter(id => $(id) && $(id).checked).length;
+}
+
+function saveMentalRecord() {
+  const date = todayStr();
+  const habitIds = ['h-water','h-sun','h-exercise','h-social','h-screen','h-meditation','h-alcohol','h-veg'];
+  const habits = habitIds.filter(id => $(id) && $(id).checked);
+  const entry = { id: uid(), date, mood: _selectedMood, stress: parseInt($('m-stress').value), habits, phq: _phqAnswers.q1 + _phqAnswers.q2, notes: $('m-notes').value.trim() };
+  const entries = load(KEYS.mental);
+  // Replace today's record if exists
+  const filtered = entries.filter(e => e.date !== date);
+  filtered.push(entry);
+  save(KEYS.mental, filtered);
+  sbUpsert('mental', entry);
+  $('m-notes').value = '';
+  habitIds.forEach(id => { if ($(id)) $(id).checked = false; });
+  renderMental(); showToast('✅ メンタル記録を保存しました');
+}
+
+function renderMental() {
+  const entries = load(KEYS.mental);
+  const ul = $('m-list');
+  if (ul) {
+    if (entries.length === 0) { ul.innerHTML = '<li class="empty-msg">記録なし</li>'; }
+    else {
+      ul.innerHTML = [...entries].reverse().slice(0,14).map(e => `<li class="entry-item">
+        <div class="entry-info">
+          <div class="entry-main">${MOOD_LABELS[e.mood] || '?'} <span style="color:var(--danger);font-size:12px">ストレス:${e.stress}/10</span></div>
+          <div class="entry-sub">${e.date}${e.notes ? ' · '+e.notes : ''}${e.habits && e.habits.length ? ' · 習慣'+e.habits.length+'項目' : ''}</div>
+        </div>
+        <button class="btn-delete" onclick="deleteMentalRecord('${e.id}')">✕</button>
+      </li>`).join('');
+    }
+  }
+  // Habit score display
+  const hs = $('habit-score');
+  if (hs) { const score = getHabitScore(); hs.textContent = score > 0 ? `本日の習慣スコア: ${score}/8 ${score >= 6 ? '🌟' : score >= 4 ? '✅' : '💪'}` : ''; }
+  // Chart
+  const days = getLast7Days();
+  const moodData = days.map(d => { const e = entries.find(x => x.date === d); return e ? e.mood : null; });
+  drawLineChart('chart-mood', days.map(shortDate), moodData, '#8b5cf6');
+}
+
+function deleteMentalRecord(id) {
+  save(KEYS.mental, load(KEYS.mental).filter(e => e.id !== id));
+  sbDelete('mental', id);
+  renderMental(); showToast('🗑 削除しました');
+}
+
+// ============================================================
+// 検索 (Search)
+// ============================================================
+function doSearch(q) {
+  const res = $('search-results');
+  if (!q || q.trim().length < 1) { res.innerHTML = ''; return; }
+  const kw = q.toLowerCase();
+  const results = [];
+
+  // Weight
+  load(KEYS.weight).forEach(e => { if (String(e.weight).includes(kw) || e.date.includes(kw)) results.push({ cat:'体重', main: e.weight+'kg', sub: e.date }); });
+  // Diet
+  load(KEYS.diet).forEach(e => { if ((e.food||'').toLowerCase().includes(kw) || e.date.includes(kw)) results.push({ cat:'食事', main: e.food, sub: `${e.date} · ${e.type} · ${e.calories}kcal` }); });
+  // Exercise
+  load(KEYS.exercise).forEach(e => { if ((e.type||'').includes(kw) || e.date.includes(kw)) results.push({ cat:'運動', main: e.type, sub: `${e.date} · ${e.duration}分 · ${e.burned}kcal` }); });
+  // Sleep
+  load(KEYS.sleep).forEach(e => { if (e.date.includes(kw)) results.push({ cat:'睡眠', main: `${e.duration}h`, sub: e.date }); });
+  // Visits
+  load(KEYS.visits).forEach(e => { if ((e.hospital||'').toLowerCase().includes(kw)||(e.diagnosis||'').toLowerCase().includes(kw)||(e.symptoms||'').toLowerCase().includes(kw)||e.date.includes(kw)) results.push({ cat:'通院', main: e.hospital||'病院', sub: `${e.date}${e.diagnosis?' · '+e.diagnosis:''}` }); });
+  // Mental
+  load(KEYS.mental).forEach(e => { if (e.date.includes(kw)||(e.notes||'').toLowerCase().includes(kw)) results.push({ cat:'メンタル', main: MOOD_LABELS[e.mood]||'', sub: `${e.date}${e.notes?' · '+e.notes:''}` }); });
+  // Karte
+  const k = loadKarte();
+  (k.conditions||[]).forEach(c => { if (c.toLowerCase().includes(kw)) results.push({ cat:'持病', main: c, sub: '' }); });
+  (k.allergies||[]).forEach(a => { if (a.toLowerCase().includes(kw)) results.push({ cat:'アレルギー', main: a, sub: '' }); });
+  (k.medications||[]).forEach(m => { if ((m.name||'').toLowerCase().includes(kw)) results.push({ cat:'薬', main: m.name, sub: `${m.dose||''} ${m.freq||''}` }); });
+  (k.history||[]).forEach(h => { if ((h.condition||'').toLowerCase().includes(kw)) results.push({ cat:'病歴', main: h.condition, sub: h.date||'' }); });
+
+  if (results.length === 0) { res.innerHTML = '<p class="empty-msg">「'+q+'」の検索結果なし</p>'; return; }
+  res.innerHTML = `<p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">${results.length}件見つかりました</p>` +
+    results.slice(0, 30).map(r => `<div class="sr-item"><div class="sr-cat">${r.cat}</div><div class="sr-main">${r.main}</div>${r.sub ? `<div class="sr-sub">${r.sub}</div>` : ''}</div>`).join('');
+}
+
+function initApp() {
+  const today = todayStr();
+  $('w-date').value = today;
+  $('d-date').value = today;
+  $('e-date').value = today;
+  $('s-date').value = today;
+
+  const settings = loadObj(KEYS.settings);
+  if (settings.height) $('w-height').value = settings.height;
+  if (settings.claudeApiKey) {
+    $('claude-api-key').value = settings.claudeApiKey;
+    $('api-key-section').style.display = 'none';
+    $('api-key-collapsed').style.display = 'block';
+  }
+  updateExerciseCalcUI();
+  setSleepRating(3);
+  renderWeight();
+  renderDiet();
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      if (activeTab === 'weight') renderWeight();
+      else if (activeTab === 'diet') renderDiet();
+      else if (activeTab === 'exercise') renderExercise();
+      else if (activeTab === 'sleep') renderSleep();
+    }, 150);
+  });
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+  const cfg = getSbConfig() || SB_DEFAULT;
+
+  $('sb-setup-section').style.display = 'none';
+  $('sb-auth-section').style.display = '';
+
+  // Check existing session
+  const { data: { session } } = await _sb.auth.getSession();
+  if (session && session.user) {
+    await onLoginSuccess(session.user);
+  }
+  // else: show login overlay (already visible by default)
+});
+</script>
+</body>
+</html>
