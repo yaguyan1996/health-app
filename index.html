@@ -1362,6 +1362,45 @@
       </div>
     </div>
 
+    <!-- Tab 9: インポート -->
+    <div id="panel-import" class="tab-panel">
+      <div class="card">
+        <div class="card-title">📲 iPhoneヘルスケア取り込み</div>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px">iPhoneの「ヘルスケア」アプリからエクスポートしたZIPまたはXMLファイルを選択してください。</p>
+
+        <div style="background:#f0fdf4;border:2px dashed var(--primary);border-radius:12px;padding:16px;text-align:center;margin-bottom:16px">
+          <input type="file" id="hk-file" accept=".xml,.zip" style="display:none" onchange="handleHKFile(event)">
+          <div style="font-size:32px;margin-bottom:8px">📁</div>
+          <div style="font-size:14px;font-weight:600;color:var(--primary);margin-bottom:4px">ファイルを選択</div>
+          <div style="font-size:12px;color:var(--text-muted)">export.xml または export.zip</div>
+          <button class="btn-primary" style="margin-top:12px" onclick="$('hk-file').click()">ファイルを開く</button>
+        </div>
+
+        <div id="hk-status" style="display:none;margin-bottom:16px"></div>
+
+        <!-- データ選択 -->
+        <div id="hk-select-area" style="display:none">
+          <div style="font-weight:700;margin-bottom:12px">取り込むデータを選択</div>
+          <div id="hk-checkboxes" style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px"></div>
+          <div style="display:flex;gap:8px">
+            <button class="btn-secondary" style="flex:1" onclick="hkSelectAll(true)">すべて選択</button>
+            <button class="btn-secondary" style="flex:1" onclick="hkSelectAll(false)">すべて解除</button>
+          </div>
+          <button class="btn-primary" style="width:100%;margin-top:12px" onclick="doHKImport()">選択したデータを取り込む</button>
+        </div>
+
+        <div style="background:#f8fafc;border-radius:10px;padding:14px;margin-top:16px">
+          <div style="font-weight:600;font-size:13px;margin-bottom:8px">📖 エクスポート手順</div>
+          <ol style="font-size:12px;color:var(--text-muted);padding-left:16px;line-height:1.8">
+            <li>iPhoneで「ヘルスケア」アプリを開く</li>
+            <li>右上のプロフィールアイコンをタップ</li>
+            <li>「すべてのヘルスケアデータを書き出す」をタップ</li>
+            <li>ZIPファイルを保存またはこのページで開く</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /tab-content-area -->
 
   <!-- Bottom tabs -->
@@ -1397,6 +1436,10 @@
     <button class="tab-btn" id="tab-search" onclick="switchTab('search')">
       <span class="tab-icon">🔍</span>
       <span class="tab-label">検索</span>
+    </button>
+    <button class="tab-btn" id="tab-import" onclick="switchTab('import')">
+      <span class="tab-icon">📲</span>
+      <span class="tab-label">取り込み</span>
     </button>
   </nav>
 </div>
@@ -3001,6 +3044,170 @@ function doSearch(q) {
   if (results.length === 0) { res.innerHTML = '<p class="empty-msg">「'+q+'」の検索結果なし</p>'; return; }
   res.innerHTML = `<p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">${results.length}件見つかりました</p>` +
     results.slice(0, 30).map(r => `<div class="sr-item"><div class="sr-cat">${r.cat}</div><div class="sr-main">${r.main}</div>${r.sub ? `<div class="sr-sub">${r.sub}</div>` : ''}</div>`).join('');
+}
+
+// ============================================================
+// iPhone HealthKit Import
+// ============================================================
+var _hkData = null;
+
+function handleHKFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = $('hk-status');
+  status.style.display = 'block';
+  status.innerHTML = '<p style="color:var(--primary)">📂 読み込み中...</p>';
+  $('hk-select-area').style.display = 'none';
+
+  if (file.name.endsWith('.zip')) {
+    // ZIP: use FileReader to read as ArrayBuffer, then extract XML manually
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      // Try to find export.xml in zip by searching for XML content
+      // Simple approach: read as text and find XML portions
+      status.innerHTML = '<p style="color:var(--danger)">ZIPファイルは直接開けません。ZIPを解凍して export.xml ファイルを選択してください。</p>';
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const parser = new DOMParser();
+        const xml = parser.parseFromString(e.target.result, 'text/xml');
+        parseHKXml(xml);
+      } catch(err) {
+        status.innerHTML = '<p style="color:var(--danger)">読み込みエラー: ' + err.message + '</p>';
+      }
+    };
+    reader.readAsText(file);
+  }
+}
+
+function parseHKXml(xml) {
+  const status = $('hk-status');
+  const records = xml.querySelectorAll('Record');
+  if (!records.length) {
+    status.innerHTML = '<p style="color:var(--danger)">データが見つかりませんでした。export.xml を選択してください。</p>';
+    return;
+  }
+
+  const data = { weight: [], steps: [], sleep: [], calories: [] };
+
+  records.forEach(r => {
+    const type = r.getAttribute('type') || '';
+    const value = parseFloat(r.getAttribute('value'));
+    const unit = r.getAttribute('unit') || '';
+    const dateStr = (r.getAttribute('startDate') || '').substring(0, 10);
+    if (!dateStr || isNaN(value)) return;
+
+    if (type === 'HKQuantityTypeIdentifierBodyMass') {
+      // Convert to kg if needed
+      const kg = unit === 'lb' ? value * 0.453592 : value;
+      data.weight.push({ date: dateStr, weight: Math.round(kg * 10) / 10 });
+    } else if (type === 'HKQuantityTypeIdentifierStepCount') {
+      data.steps.push({ date: dateStr, steps: Math.round(value) });
+    } else if (type === 'HKQuantityTypeIdentifierActiveEnergyBurned' || type === 'HKQuantityTypeIdentifierBasalEnergyBurned') {
+      data.calories.push({ date: dateStr, cal: Math.round(value) });
+    } else if (type === 'HKCategoryTypeIdentifierSleepAnalysis') {
+      const end = (r.getAttribute('endDate') || '').substring(0, 10);
+      const startDt = new Date(r.getAttribute('startDate'));
+      const endDt = new Date(r.getAttribute('endDate'));
+      const hours = Math.round((endDt - startDt) / 36000) / 100;
+      if (hours > 0) data.sleep.push({ date: end, duration: hours });
+    }
+  });
+
+  // Aggregate by date
+  const agg = (arr, key) => {
+    const map = {};
+    arr.forEach(item => {
+      if (!map[item.date]) map[item.date] = { ...item };
+      else map[item.date][key] = (map[item.date][key] || 0) + (item[key] || 0);
+    });
+    return Object.values(map);
+  };
+
+  _hkData = {
+    weight: agg(data.weight, 'weight'),
+    steps: agg(data.steps, 'steps'),
+    sleep: agg(data.sleep, 'duration'),
+    calories: agg(data.calories, 'cal')
+  };
+
+  // Show summary & checkboxes
+  status.innerHTML = `<p style="color:var(--primary);font-weight:600">✅ データを読み込みました</p>`;
+
+  const counts = [
+    { key: 'weight', label: '⚖️ 体重', count: _hkData.weight.length },
+    { key: 'steps',  label: '👟 歩数', count: _hkData.steps.length },
+    { key: 'sleep',  label: '😴 睡眠', count: _hkData.sleep.length },
+    { key: 'calories', label: '🔥 消費カロリー', count: _hkData.calories.length },
+  ].filter(d => d.count > 0);
+
+  if (!counts.length) {
+    status.innerHTML += '<p style="color:var(--text-muted)">取り込めるデータがありませんでした。</p>';
+    return;
+  }
+
+  $('hk-checkboxes').innerHTML = counts.map(d =>
+    `<label style="display:flex;align-items:center;gap:10px;padding:10px;background:#f8fafc;border-radius:10px;cursor:pointer">
+      <input type="checkbox" id="hk-chk-${d.key}" checked style="width:18px;height:18px;accent-color:var(--primary)">
+      <span style="flex:1;font-size:14px">${d.label}</span>
+      <span style="font-size:12px;color:var(--text-muted)">${d.count}件</span>
+    </label>`
+  ).join('');
+
+  $('hk-select-area').style.display = 'block';
+}
+
+function hkSelectAll(checked) {
+  $('hk-checkboxes').querySelectorAll('input[type=checkbox]').forEach(c => c.checked = checked);
+}
+
+function doHKImport() {
+  if (!_hkData) return;
+  let imported = 0;
+
+  if ($('hk-chk-weight') && $('hk-chk-weight').checked) {
+    const existing = load(KEYS.weight);
+    const existDates = new Set(existing.map(e => e.date));
+    const newItems = _hkData.weight.filter(w => !existDates.has(w.date)).map(w => ({
+      id: 'hk_' + w.date, date: w.date, weight: w.weight, bmi: null
+    }));
+    save(KEYS.weight, [...existing, ...newItems].sort((a,b) => a.date > b.date ? 1 : -1));
+    newItems.forEach(e => sbUpsert('weight', e));
+    imported += newItems.length;
+  }
+
+  if ($('hk-chk-steps') && $('hk-chk-steps').checked) {
+    const existing = load(KEYS.exercise);
+    const existIds = new Set(existing.map(e => e.id));
+    const newItems = _hkData.steps.filter(s => !existIds.has('hk_steps_' + s.date)).map(s => ({
+      id: 'hk_steps_' + s.date, date: s.date, type: 'ウォーキング', steps: s.steps,
+      duration: Math.round(s.steps / 100), burned: Math.round(s.steps * 0.04)
+    }));
+    save(KEYS.exercise, [...existing, ...newItems].sort((a,b) => a.date > b.date ? 1 : -1));
+    newItems.forEach(e => sbUpsert('exercise', e));
+    imported += newItems.length;
+  }
+
+  if ($('hk-chk-sleep') && $('hk-chk-sleep').checked) {
+    const existing = load(KEYS.sleep);
+    const existDates = new Set(existing.map(e => e.date));
+    const newItems = _hkData.sleep.filter(s => !existDates.has(s.date)).map(s => ({
+      id: 'hk_sleep_' + s.date, date: s.date, duration: Math.round(s.duration * 10) / 10,
+      bedtime: '', wakeup: '', rating: 3, notes: 'ヘルスケアより取り込み'
+    }));
+    save(KEYS.sleep, [...existing, ...newItems].sort((a,b) => a.date > b.date ? 1 : -1));
+    newItems.forEach(e => sbUpsert('sleep', e));
+    imported += newItems.length;
+  }
+
+  showToast('✅ ' + imported + '件のデータを取り込みました');
+  $('hk-select-area').style.display = 'none';
+  $('hk-status').innerHTML = `<p style="color:var(--primary);font-weight:600">✅ ${imported}件取り込み完了！</p>`;
+  _hkData = null;
+  $('hk-file').value = '';
 }
 
 function initApp() {
