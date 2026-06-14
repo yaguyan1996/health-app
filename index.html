@@ -161,6 +161,21 @@
     .next-appt-box .na-days { font-size:18px; font-weight:800; color:#b45309; }
     .next-appt-box .na-info { font-size:12px; color:#92400e; }
 
+    /* AI Advisor */
+    .ai-btn { display:flex; align-items:center; gap:8px; background:linear-gradient(135deg,#10b981,#059669); color:#fff; border:none; border-radius:12px; padding:11px 16px; font-size:14px; font-weight:700; cursor:pointer; width:100%; margin-top:12px; justify-content:center; box-shadow:0 2px 8px rgba(16,185,129,0.3); }
+    .ai-btn:active { opacity:0.85; }
+    .ai-panel { background:#f0fdf4; border:1.5px solid #a7f3d0; border-radius:14px; padding:14px; margin-top:12px; display:none; }
+    .ai-panel.show { display:block; }
+    .ai-messages { max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; margin-bottom:12px; }
+    .ai-msg-ai { background:#fff; border:1px solid #d1fae5; border-radius:12px 12px 12px 4px; padding:10px 13px; font-size:13px; line-height:1.6; }
+    .ai-msg-user { background:var(--primary); color:#fff; border-radius:12px 12px 4px 12px; padding:10px 13px; font-size:13px; line-height:1.6; align-self:flex-end; max-width:85%; }
+    .ai-msg-thinking { color:var(--text-muted); font-size:12px; font-style:italic; }
+    .ai-input-row { display:flex; gap:8px; }
+    .ai-input-row input { flex:1; padding:9px 12px; border:1.5px solid var(--border); border-radius:10px; font-size:14px; background:#fff; }
+    .ai-send-btn { background:var(--primary); color:#fff; border:none; border-radius:10px; padding:9px 14px; font-size:16px; cursor:pointer; flex-shrink:0; }
+    .ai-quick-btns { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+    .ai-quick-btn { background:#fff; border:1.5px solid var(--primary); color:var(--primary); border-radius:20px; padding:5px 12px; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; }
+
     .tab-btn .tab-icon {
       font-size: 22px;
       line-height: 1;
@@ -948,6 +963,23 @@
         <ul class="entry-list" id="w-list"></ul>
       </div>
 
+      <div class="card">
+        <div class="card-title">🤖 AI アドバイザー</div>
+        <button class="ai-btn" onclick="openAI('weight')">💬 体重・ダイエットについて相談する</button>
+        <div class="ai-panel" id="ai-panel-weight">
+          <div class="ai-quick-btns">
+            <button class="ai-quick-btn" onclick="sendAIQuick('weight','今の体重は適正ですか？')">適正体重は？</button>
+            <button class="ai-quick-btn" onclick="sendAIQuick('weight','痩せるためのアドバイスをください')">ダイエット法</button>
+            <button class="ai-quick-btn" onclick="sendAIQuick('weight','体重の変化について分析してください')">変化を分析</button>
+          </div>
+          <div class="ai-messages" id="ai-msgs-weight"></div>
+          <div class="ai-input-row">
+            <input type="text" id="ai-input-weight" placeholder="質問を入力..." onkeydown="if(event.key==='Enter')sendAIMsg('weight')">
+            <button class="ai-send-btn" onclick="sendAIMsg('weight')">➤</button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Tab 2: 食事 -->
@@ -1045,6 +1077,23 @@
         <canvas id="chart-diet" height="160"></canvas>
       </div>
 
+      <div class="card">
+        <div class="card-title">🤖 AI アドバイザー</div>
+        <button class="ai-btn" onclick="openAI('diet')">💬 食事・栄養について相談する</button>
+        <div class="ai-panel" id="ai-panel-diet">
+          <div class="ai-quick-btns">
+            <button class="ai-quick-btn" onclick="sendAIQuick('diet','今日の食事バランスはどうですか？')">バランス評価</button>
+            <button class="ai-quick-btn" onclick="sendAIQuick('diet','カロリーを抑えるコツを教えて')">カロリー削減</button>
+            <button class="ai-quick-btn" onclick="sendAIQuick('diet','栄養バランスを改善するには？')">栄養改善</button>
+          </div>
+          <div class="ai-messages" id="ai-msgs-diet"></div>
+          <div class="ai-input-row">
+            <input type="text" id="ai-input-diet" placeholder="質問を入力..." onkeydown="if(event.key==='Enter')sendAIMsg('diet')">
+            <button class="ai-send-btn" onclick="sendAIMsg('diet')">➤</button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Tab 3: 運動 -->
@@ -1116,6 +1165,23 @@
         <ul class="entry-list" id="e-list"></ul>
       </div>
 
+      <div class="card">
+        <div class="card-title">🤖 AI アドバイザー</div>
+        <button class="ai-btn" onclick="openAI('exercise')">💬 運動・トレーニングについて相談する</button>
+        <div class="ai-panel" id="ai-panel-exercise">
+          <div class="ai-quick-btns">
+            <button class="ai-quick-btn" onclick="sendAIQuick('exercise','今週の運動量は十分ですか？')">運動量評価</button>
+            <button class="ai-quick-btn" onclick="sendAIQuick('exercise','効果的な有酸素運動を教えて')">有酸素運動</button>
+            <button class="ai-quick-btn" onclick="sendAIQuick('exercise','歩数を増やすコツは？')">歩数アップ</button>
+          </div>
+          <div class="ai-messages" id="ai-msgs-exercise"></div>
+          <div class="ai-input-row">
+            <input type="text" id="ai-input-exercise" placeholder="質問を入力..." onkeydown="if(event.key==='Enter')sendAIMsg('exercise')">
+            <button class="ai-send-btn" onclick="sendAIMsg('exercise')">➤</button>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- Tab 4: 睡眠 -->
@@ -1175,6 +1241,23 @@
       <div class="card">
         <div class="section-title">履歴</div>
         <ul class="entry-list" id="s-list"></ul>
+      </div>
+
+      <div class="card">
+        <div class="card-title">🤖 AI アドバイザー</div>
+        <button class="ai-btn" onclick="openAI('sleep')">💬 睡眠・休息について相談する</button>
+        <div class="ai-panel" id="ai-panel-sleep">
+          <div class="ai-quick-btns">
+            <button class="ai-quick-btn" onclick="sendAIQuick('sleep','睡眠の質を上げるには？')">質の改善</button>
+            <button class="ai-quick-btn" onclick="sendAIQuick('sleep','理想的な睡眠時間は？')">理想の時間</button>
+            <button class="ai-quick-btn" onclick="sendAIQuick('sleep','寝つきが悪い場合の対策は？')">寝つき改善</button>
+          </div>
+          <div class="ai-messages" id="ai-msgs-sleep"></div>
+          <div class="ai-input-row">
+            <input type="text" id="ai-input-sleep" placeholder="質問を入力..." onkeydown="if(event.key==='Enter')sendAIMsg('sleep')">
+            <button class="ai-send-btn" onclick="sendAIMsg('sleep')">➤</button>
+          </div>
+        </div>
       </div>
 
     </div>
@@ -1350,6 +1433,22 @@
       <div class="card">
         <div class="section-title">📝 記録履歴</div>
         <ul class="entry-list" id="m-list"></ul>
+      </div>
+      <div class="card">
+        <div class="card-title">🤖 AI アドバイザー</div>
+        <button class="ai-btn" onclick="openAI('mental')">💬 メンタルヘルスについて相談する</button>
+        <div class="ai-panel" id="ai-panel-mental">
+          <div class="ai-quick-btns">
+            <button class="ai-quick-btn" onclick="sendAIQuick('mental','ストレス解消法を教えて')">ストレス解消</button>
+            <button class="ai-quick-btn" onclick="sendAIQuick('mental','気分が落ち込んでいます')">気分が落ち込む</button>
+            <button class="ai-quick-btn" onclick="sendAIQuick('mental','メンタルを安定させるには？')">安定させる方法</button>
+          </div>
+          <div class="ai-messages" id="ai-msgs-mental"></div>
+          <div class="ai-input-row">
+            <input type="text" id="ai-input-mental" placeholder="質問を入力..." onkeydown="if(event.key==='Enter')sendAIMsg('mental')">
+            <button class="ai-send-btn" onclick="sendAIMsg('mental')">➤</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -3044,6 +3143,142 @@ function doSearch(q) {
   if (results.length === 0) { res.innerHTML = '<p class="empty-msg">「'+q+'」の検索結果なし</p>'; return; }
   res.innerHTML = `<p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">${results.length}件見つかりました</p>` +
     results.slice(0, 30).map(r => `<div class="sr-item"><div class="sr-cat">${r.cat}</div><div class="sr-main">${r.main}</div>${r.sub ? `<div class="sr-sub">${r.sub}</div>` : ''}</div>`).join('');
+}
+
+// ============================================================
+// AI Advisor
+// ============================================================
+var _aiHistory = {};
+
+function openAI(tab) {
+  const panel = $('ai-panel-' + tab);
+  if (panel.classList.contains('show')) {
+    panel.classList.remove('show');
+    return;
+  }
+  panel.classList.add('show');
+  // Send initial context-aware advice if no messages yet
+  const msgs = $('ai-msgs-' + tab);
+  if (!msgs.children.length) {
+    const greeting = getAIGreeting(tab);
+    addAIMsg(tab, 'ai', greeting);
+  }
+}
+
+function getAIGreeting(tab) {
+  const greetings = {
+    weight: 'こんにちは！体重・ダイエットについてアドバイスします。気になることを何でも聞いてください😊',
+    diet: 'こんにちは！食事・栄養バランスについてアドバイスします。食事の悩みを教えてください🥗',
+    exercise: 'こんにちは！運動・フィットネスについてアドバイスします。運動に関する質問をどうぞ💪',
+    sleep: 'こんにちは！睡眠の質改善についてアドバイスします。睡眠の悩みを教えてください😴',
+    mental: 'こんにちは。メンタルヘルスについてサポートします。どんなことでも気軽に話してください🧘',
+  };
+  return greetings[tab] || 'こんにちは！何でも相談してください。';
+}
+
+function addAIMsg(tab, role, text) {
+  const msgs = $('ai-msgs-' + tab);
+  const div = document.createElement('div');
+  div.className = role === 'ai' ? 'ai-msg-ai' : 'ai-msg-user';
+  div.textContent = text;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function getAIContext(tab) {
+  const today = todayStr();
+  let ctx = '';
+  if (tab === 'weight') {
+    const entries = load(KEYS.weight).slice(-7);
+    if (entries.length) {
+      const latest = entries[entries.length-1];
+      ctx = `【ユーザーの体重データ】\n最新体重: ${latest.weight}kg, 日付: ${latest.date}\n直近7件: ${entries.map(e=>e.weight+'kg').join(', ')}`;
+      if (latest.bmi) ctx += `\nBMI: ${latest.bmi}`;
+    }
+  } else if (tab === 'diet') {
+    const entries = load(KEYS.diet).filter(e => e.date === today);
+    const total = entries.reduce((s,e) => s + (e.calories||0), 0);
+    ctx = `【今日の食事記録】\n合計: ${total}kcal\n内訳: ${entries.map(e=>`${e.food}(${e.calories}kcal)`).join(', ') || 'なし'}`;
+  } else if (tab === 'exercise') {
+    const entries = load(KEYS.exercise).slice(-7);
+    const totalSteps = entries.reduce((s,e) => s + (e.steps||0), 0);
+    const totalBurned = entries.reduce((s,e) => s + (e.burned||0), 0);
+    ctx = `【直近7日の運動記録】\n合計歩数: ${totalSteps}歩, 合計消費: ${totalBurned}kcal\n内訳: ${entries.map(e=>`${e.date}:${e.type||'運動'}${e.steps?'('+e.steps+'歩)':''}`).join(', ')}`;
+  } else if (tab === 'sleep') {
+    const entries = load(KEYS.sleep).slice(-7);
+    const avg = entries.length ? (entries.reduce((s,e)=>s+(e.duration||0),0)/entries.length).toFixed(1) : 0;
+    ctx = `【直近7日の睡眠記録】\n平均睡眠時間: ${avg}時間\n内訳: ${entries.map(e=>`${e.date}:${e.duration}h(評価${e.rating}/5)`).join(', ')}`;
+  } else if (tab === 'mental') {
+    const entries = load(KEYS.mental).slice(-7);
+    const karte = loadKarte ? loadKarte() : {};
+    ctx = `【直近のメンタル記録】\n${entries.map(e=>`${e.date}:気分${e.mood||'-'}/5 ストレス${e.stress||'-'}/5`).join(', ')}`;
+    if ((karte.conditions||[]).length) ctx += `\n【持病】${karte.conditions.join(',')}`;
+  }
+  return ctx;
+}
+
+function buildAIMessages(tab) {
+  const history = _aiHistory[tab] || [];
+  const systemPrompt = `あなたは健康管理アプリ内のAIヘルスアドバイザーです。ユーザーの健康データを元に、親しみやすく具体的なアドバイスをしてください。医療的な診断はせず、生活習慣の改善提案を中心に回答してください。返答は簡潔に（200文字以内）、日本語で答えてください。`;
+  const contextMsg = getAIContext(tab);
+
+  const messages = [];
+  if (contextMsg) {
+    messages.push({ role: 'user', content: `【現在のデータ】\n${contextMsg}` });
+    messages.push({ role: 'assistant', content: 'データを確認しました。何でもご相談ください。' });
+  }
+  messages.push(...history);
+  return { system: systemPrompt, messages };
+}
+
+async function sendAIMsg(tab) {
+  const input = $('ai-input-' + tab);
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  sendAIQuick(tab, text);
+}
+
+async function sendAIQuick(tab, text) {
+  addAIMsg(tab, 'user', text);
+  if (!_aiHistory[tab]) _aiHistory[tab] = [];
+  _aiHistory[tab].push({ role: 'user', content: text });
+
+  const msgs = $('ai-msgs-' + tab);
+  const thinking = document.createElement('div');
+  thinking.className = 'ai-msg-thinking';
+  thinking.textContent = '考え中...';
+  msgs.appendChild(thinking);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  try {
+    const { system, messages } = buildAIMessages(tab);
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': CLAUDE_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 400,
+        system,
+        messages
+      })
+    });
+    const data = await resp.json();
+    thinking.remove();
+    const reply = data.content?.[0]?.text || 'エラーが発生しました';
+    addAIMsg(tab, 'ai', reply);
+    _aiHistory[tab].push({ role: 'assistant', content: reply });
+    // Keep history short
+    if (_aiHistory[tab].length > 20) _aiHistory[tab] = _aiHistory[tab].slice(-20);
+  } catch(e) {
+    thinking.remove();
+    addAIMsg(tab, 'ai', 'エラー: ' + e.message);
+  }
 }
 
 // ============================================================
