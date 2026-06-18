@@ -2409,7 +2409,15 @@ function deleteSleep(id) {
 // ============================================================
 // Claude API - Food Photo Analysis
 // ============================================================
-const CLAUDE_API_KEY = ['sk-ant-api03-6pIyX1VmHXgLMZ','1A1IRR4C5yj0vJgUtbhcCS-NK9Y','Rg2RWNglANPd6tG4gFf_fXwnQlC','chUDUTPlcoc4X5KAEA-z40nmgAA'].join('');
+const CLAUDE_PROXY = 'https://bvrqpionvrnjjtillhsk.supabase.co/functions/v1/rapid-responder';
+const CLAUDE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2cnFwaW9udnJuamp0aWxsaHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MTUxNjEsImV4cCI6MjA5NjQ5MTE2MX0.1vhKaQkmZn8OLFmRN2ZZ0GArzC5g3hTFifac--uZ2L4';
+function claudeFetch(body) {
+  return fetch(CLAUDE_PROXY, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'apikey': CLAUDE_ANON, 'Authorization': 'Bearer ' + CLAUDE_ANON },
+    body: JSON.stringify(body)
+  });
+}
 
 function saveApiKey() {
   const key = $('claude-api-key').value.trim();
@@ -2532,16 +2540,7 @@ function callClaudeAPI(base64) {
     }]
   });
 
-  fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-      'content-type': 'application/json'
-    },
-    body: body
-  })
+  claudeFetch(JSON.parse(body))
   .then(function(res) {
     if (!res.ok) {
       return res.text().then(function(t) {
@@ -2608,23 +2607,13 @@ function scheduleFoodCalLookup() {
     var name = $('d-food').value.trim();
     if (!name) return;
     var settings = loadObj(KEYS.settings);
-    var apiKey = (settings.claudeApiKey || '').trim() || CLAUDE_API_KEY;
     var calEl = $('d-cal');
     calEl.style.background = '#fef9c3';
     calEl.placeholder = '取得中...';
-    fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({
+    claudeFetch({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 32,
         messages: [{ role: 'user', content: '「' + name + '」1人前の推定カロリーを整数のみで答えてください（単位不要）。例: 350' }]
-      })
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -2653,25 +2642,13 @@ function autoFetchCal(idx) {
   var foodName = nameEl.value.trim();
   if (!foodName) return;
 
-  var settings = loadObj(KEYS.settings);
-  var apiKey = (settings.claudeApiKey || '').trim() || CLAUDE_API_KEY;
-
   calEl.style.background = '#fef9c3';
   calEl.placeholder = '取得中...';
 
-  fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-      'content-type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 32,
-      messages: [{ role: 'user', content: '「' + foodName + '」1人前の推定カロリーを整数のみで答えてください（単位不要）。例: 350' }]
-    })
+  claudeFetch({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 32,
+    messages: [{ role: 'user', content: '「' + foodName + '」1人前の推定カロリーを整数のみで答えてください（単位不要）。例: 350' }]
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
@@ -3253,20 +3230,11 @@ async function sendAIQuick(tab, text) {
 
   try {
     const { system, messages } = buildAIMessages(tab);
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify({
+    const resp = await claudeFetch({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 400,
         system,
         messages
-      })
     });
     const data = await resp.json();
     thinking.remove();
