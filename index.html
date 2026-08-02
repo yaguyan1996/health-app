@@ -896,6 +896,9 @@
         <div class="login-field"><label>パスワード</label><input type="password" id="login-pw" placeholder="パスワード"></div>
         <button class="login-submit" onclick="doLogin()">ログイン</button>
         <div class="login-error" id="login-error"></div>
+        <div style="margin-top:12px;text-align:center">
+          <button onclick="useGuestMode()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;text-decoration:underline">ログインせずに使う（ゲストモード）</button>
+        </div>
       </div>
 
       <div id="signup-form-box" style="display:none">
@@ -1842,6 +1845,14 @@ async function onLoginSuccess(user) {
   $('header-user').style.display = 'flex';
   $('user-email-display').textContent = user.email;
   await syncFromCloud();
+  initApp();
+}
+
+function useGuestMode() {
+  _userId = 'guest';
+  $('login-overlay').style.display = 'none';
+  $('header-user').style.display = 'flex';
+  $('user-email-display').textContent = 'ゲスト';
   initApp();
 }
 
