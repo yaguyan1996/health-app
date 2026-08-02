@@ -161,6 +161,11 @@
     .next-appt-box .na-days { font-size:18px; font-weight:800; color:#b45309; }
     .next-appt-box .na-info { font-size:12px; color:#92400e; }
 
+    /* Fitness tab */
+    .ft-bw-btn { background:var(--bg); border:2px solid var(--border); color:var(--text-muted); border-radius:10px; padding:10px 6px; font-size:13px; cursor:pointer; text-align:center; touch-action:manipulation; }
+    .ft-bw-btn.sel { border-color:var(--primary); color:var(--primary-dark); background:var(--primary-light); font-weight:700; }
+    .btn-secondary { background:var(--bg); border:1.5px solid var(--border); color:var(--text); border-radius:10px; padding:10px 16px; font-size:14px; font-weight:600; cursor:pointer; touch-action:manipulation; }
+
     /* AI Advisor */
     .ai-btn { display:flex; align-items:center; gap:8px; background:linear-gradient(135deg,#10b981,#059669); color:#fff; border:none; border-radius:12px; padding:11px 16px; font-size:14px; font-weight:700; cursor:pointer; width:100%; margin-top:12px; justify-content:center; box-shadow:0 2px 8px rgba(16,185,129,0.3); }
     .ai-btn:active { opacity:0.85; }
@@ -1500,6 +1505,202 @@
       </div>
     </div>
 
+    <!-- Tab 10: 筋トレ -->
+    <div id="panel-fitness" class="tab-panel">
+
+      <!-- 目標設定 -->
+      <div class="card">
+        <div class="card-title">🎯 フィジカル目標</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>目標期限</label>
+            <input type="date" id="ft-goal-date">
+          </div>
+          <div class="form-group">
+            <label>目標体重 (kg)</label>
+            <input type="number" id="ft-goal-weight" placeholder="70" step="0.1">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>目標筋肉量 (kg)</label>
+            <input type="number" id="ft-goal-muscle" placeholder="35" step="0.1">
+          </div>
+          <div class="form-group">
+            <label>目標体脂肪率 (%)</label>
+            <input type="number" id="ft-goal-fat" placeholder="15" step="0.1">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>フォト目標・ビジョン（なりたい体の説明）</label>
+          <textarea id="ft-goal-vision" rows="2" placeholder="例：腹筋が見える体、ベンチ100kg達成..." style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:14px;resize:none;background:var(--bg)"></textarea>
+        </div>
+        <button class="btn-primary" onclick="saveFitnessGoal()">💾 目標を保存</button>
+        <div id="ft-goal-summary" style="margin-top:10px;padding:10px;background:var(--primary-light);border-radius:8px;display:none;font-size:13px"></div>
+      </div>
+
+      <!-- トレーニング記録 -->
+      <div class="card">
+        <div class="card-title">💪 トレーニング記録</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>日付</label>
+            <input type="date" id="ft-date">
+          </div>
+          <div class="form-group">
+            <label>タイプ</label>
+            <select id="ft-type" onchange="updateFitnessUI()">
+              <option value="gym">🏋️ ジム</option>
+              <option value="bodyweight">🤸 自重</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ジム用 -->
+        <div id="ft-gym-area">
+          <div class="form-group">
+            <label>種目</label>
+            <select id="ft-gym-exercise" onchange="toggleGymCustom()">
+              <option>ベンチプレス</option>
+              <option>スクワット</option>
+              <option>デッドリフト</option>
+              <option>ショルダープレス</option>
+              <option>ラットプルダウン</option>
+              <option>ベントオーバーロウ</option>
+              <option>ダンベルカール</option>
+              <option>トライセプスプッシュダウン</option>
+              <option>レッグプレス</option>
+              <option>その他</option>
+            </select>
+          </div>
+          <div id="ft-gym-custom-row" style="display:none" class="form-group">
+            <label>種目名</label>
+            <input type="text" id="ft-gym-custom" placeholder="種目名を入力">
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>重量 (kg)</label>
+              <input type="number" id="ft-weight" placeholder="60" step="0.5" min="0">
+            </div>
+            <div class="form-group">
+              <label>セット数</label>
+              <input type="number" id="ft-sets" placeholder="3" min="1" max="20">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>レップ数</label>
+            <input type="number" id="ft-reps" placeholder="10" min="1" max="100">
+          </div>
+        </div>
+
+        <!-- 自重用 -->
+        <div id="ft-bw-area" style="display:none">
+          <div class="form-group">
+            <label>種目</label>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px" id="ft-bw-btns">
+              <button class="ft-bw-btn sel" data-ex="腕立て伏せ" onclick="selectBWEx(this,'腕立て伏せ')">💪 腕立て伏せ</button>
+              <button class="ft-bw-btn" data-ex="スクワット" onclick="selectBWEx(this,'スクワット')">🦵 スクワット</button>
+              <button class="ft-bw-btn" data-ex="腹筋" onclick="selectBWEx(this,'腹筋')">🔥 腹筋</button>
+              <button class="ft-bw-btn" data-ex="体幹（プランク）" onclick="selectBWEx(this,'体幹（プランク）')">🧱 体幹（プランク）</button>
+              <button class="ft-bw-btn" data-ex="懸垂" onclick="selectBWEx(this,'懸垂')">🏋️ 懸垂</button>
+              <button class="ft-bw-btn" data-ex="ランジ" onclick="selectBWEx(this,'ランジ')">🦿 ランジ</button>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>セット数</label>
+              <input type="number" id="ft-bw-sets" placeholder="3" min="1" max="20">
+            </div>
+            <div class="form-group">
+              <label id="ft-bw-count-label">レップ数</label>
+              <input type="number" id="ft-bw-count" placeholder="20" min="1">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-top:8px">
+          <label>メモ（任意）</label>
+          <input type="text" id="ft-memo" placeholder="フォームの気づき、調子など">
+        </div>
+        <button class="btn-primary" onclick="saveTraining()">💾 記録する</button>
+      </div>
+
+      <!-- 進捗・サマリー -->
+      <div class="card">
+        <div class="card-title">📊 今週の進捗</div>
+        <div class="stat-grid">
+          <div class="stat-box">
+            <div class="stat-value" id="ft-week-sessions">0</div>
+            <div class="stat-label">トレーニング回数</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-value" id="ft-week-sets">0</div>
+            <div class="stat-label">総セット数</div>
+          </div>
+        </div>
+        <div id="ft-progress-vs-goal" style="margin-top:10px;padding:10px;background:var(--bg);border-radius:8px;font-size:13px"></div>
+        <div class="section-title" style="margin-top:12px">📋 記録一覧</div>
+        <ul class="entry-list" id="ft-list"></ul>
+      </div>
+
+      <!-- 食事管理 -->
+      <div class="card">
+        <div class="card-title">🍽️ 筋トレ食事管理</div>
+        <div style="background:var(--primary-light);border-radius:8px;padding:10px;margin-bottom:12px;font-size:13px">
+          <strong>💡 理想の目標</strong>
+          <div class="form-row" style="margin-top:8px">
+            <div class="form-group">
+              <label>目標カロリー (kcal)</label>
+              <input type="number" id="ft-meal-target-cal" placeholder="2500" oninput="saveFitnessGoal()">
+            </div>
+            <div class="form-group">
+              <label>目標タンパク質 (g)</label>
+              <input type="number" id="ft-meal-target-protein" placeholder="150" oninput="saveFitnessGoal()">
+            </div>
+          </div>
+        </div>
+        <label>今日食べたものを記録</label>
+        <textarea id="ft-meal-input" rows="3" placeholder="例：朝：プロテイン＋卵2個＋オートミール&#10;昼：鶏胸肉＋玄米＋サラダ&#10;夜：サーモン＋ブロッコリー" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;resize:none;background:var(--bg);margin-top:6px;margin-bottom:10px"></textarea>
+        <div class="form-row">
+          <div class="form-group">
+            <label>総カロリー (kcal)</label>
+            <input type="number" id="ft-meal-cal" placeholder="2200">
+          </div>
+          <div class="form-group">
+            <label>タンパク質 (g)</label>
+            <input type="number" id="ft-meal-protein" placeholder="130">
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-primary" style="flex:2" onclick="saveFitnessMeal()">💾 記録する</button>
+          <button class="btn-secondary" style="flex:3" onclick="analyzeFitnessMeal()">🤖 AIでフィードバック</button>
+        </div>
+        <div id="ft-meal-ai-result" style="display:none;margin-top:10px;padding:12px;background:#f8fafc;border-radius:8px;font-size:13px;line-height:1.7"></div>
+        <div class="section-title" style="margin-top:12px">今週の食事記録</div>
+        <ul class="entry-list" id="ft-meal-list"></ul>
+      </div>
+
+      <!-- AI トレーナー -->
+      <div class="card">
+        <div class="card-title">🤖 AIパーソナルトレーナー</div>
+        <button class="ai-btn" onclick="openAI('fitness')">💬 トレーニング・食事について相談する</button>
+        <div class="ai-panel" id="ai-panel-fitness">
+          <div class="ai-quick-btns">
+            <button class="ai-quick-btn" onclick="sendAIQuick('fitness','今週のトレーニングを評価して')">今週評価</button>
+            <button class="ai-quick-btn" onclick="sendAIQuick('fitness','筋肉をつけるための食事を教えて')">食事アドバイス</button>
+            <button class="ai-quick-btn" onclick="sendAIQuick('fitness','自重トレーニングの効果的なメニューは？')">自重メニュー</button>
+            <button class="ai-quick-btn" onclick="sendAIQuick('fitness','目標達成に向けた計画を立てて')">計画立案</button>
+          </div>
+          <div class="ai-messages" id="ai-msgs-fitness"></div>
+          <div class="ai-input-row">
+            <input type="text" id="ai-input-fitness" placeholder="質問を入力..." onkeydown="if(event.key==='Enter')sendAIMsg('fitness')">
+            <button class="ai-send-btn" onclick="sendAIMsg('fitness')">➤</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /panel-fitness -->
+
   </div><!-- /tab-content-area -->
 
   <!-- Bottom tabs -->
@@ -1539,6 +1740,10 @@
     <button class="tab-btn" id="tab-import" onclick="switchTab('import')">
       <span class="tab-icon">📲</span>
       <span class="tab-label">取り込み</span>
+    </button>
+    <button class="tab-btn" id="tab-fitness" onclick="switchTab('fitness')">
+      <span class="tab-icon">💪</span>
+      <span class="tab-label">筋トレ</span>
     </button>
   </nav>
 </div>
@@ -1725,6 +1930,9 @@ const KEYS = {
   get karte()    { return 'hm_karte_'    + _userId; },
   get visits()   { return 'hm_visits_'   + _userId; },
   get mental()   { return 'hm_mental_'   + _userId; },
+  get fitness()       { return 'hm_fitness_'       + _userId; },
+  get fitness_meals() { return 'hm_fitness_meals_' + _userId; },
+  get fitness_goals() { return 'hm_fitness_goals_' + _userId; },
 };
 
 function load(key) {
@@ -1770,6 +1978,7 @@ function switchTab(name) {
     if (name === 'karte') renderKarte();
     if (name === 'visits') renderVisits();
     if (name === 'mental') renderMental();
+    if (name === 'fitness') { loadFitnessGoal(); renderFitnessList(); renderFitnessMealList(); updateFitnessUI(); }
   });
 }
 
@@ -3149,6 +3358,7 @@ function getAIGreeting(tab) {
     exercise: 'こんにちは！運動・フィットネスについてアドバイスします。運動に関する質問をどうぞ💪',
     sleep: 'こんにちは！睡眠の質改善についてアドバイスします。睡眠の悩みを教えてください😴',
     mental: 'こんにちは。メンタルヘルスについてサポートします。どんなことでも気軽に話してください🧘',
+    fitness: 'こんにちは！AIパーソナルトレーナーです💪 トレーニング・食事・目標達成について何でもサポートします！',
   };
   return greetings[tab] || 'こんにちは！何でも相談してください。';
 }
@@ -3190,6 +3400,13 @@ function getAIContext(tab) {
     const karte = loadKarte ? loadKarte() : {};
     ctx = `【直近のメンタル記録】\n${entries.map(e=>`${e.date}:気分${e.mood||'-'}/5 ストレス${e.stress||'-'}/5`).join(', ')}`;
     if ((karte.conditions||[]).length) ctx += `\n【持病】${karte.conditions.join(',')}`;
+  } else if (tab === 'fitness') {
+    const goals = loadObj(KEYS.fitness_goals);
+    const sessions = load(KEYS.fitness).slice(-10);
+    const meals = load(KEYS.fitness_meals).slice(-5);
+    if (goals.deadline) ctx += `【筋トレ目標】期限:${goals.deadline} 体重:${goals.weight||'-'}kg 筋肉量:${goals.muscle||'-'}kg 体脂肪率:${goals.fat||'-'}%\n`;
+    if (sessions.length) ctx += `【直近トレーニング(${sessions.length}件)】${sessions.map(s=>`${s.date}:${s.type}(${s.exercises||s.name||''} ${s.sets||''}セット)`).join(', ')}\n`;
+    if (meals.length) ctx += `【直近食事(${meals.length}件)】${meals.map(m=>`${m.date}:${m.cal||0}kcal PFC未設定`).join(', ')}`;
   }
   return ctx;
 }
@@ -3453,6 +3670,175 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   // else: show login overlay (already visible by default)
 });
+
+/* ====================== FITNESS TAB ====================== */
+
+function saveFitnessGoal() {
+  const goal = {
+    deadline:   $('ft-goal-date').value,
+    weight:     $('ft-goal-weight').value,
+    muscle:     $('ft-goal-muscle').value,
+    fat:        $('ft-goal-fat').value,
+    vision:     $('ft-goal-vision').value,
+    targetCal:  $('ft-meal-target-cal') ? $('ft-meal-target-cal').value : '',
+    targetProt: $('ft-meal-target-protein') ? $('ft-meal-target-protein').value : '',
+  };
+  localStorage.setItem(KEYS.fitness_goals, JSON.stringify(goal));
+  showToast('✅ 目標を保存しました');
+}
+
+function loadFitnessGoal() {
+  const goal = loadObj(KEYS.fitness_goals);
+  if (goal.deadline)   $('ft-goal-date').value = goal.deadline;
+  if (goal.weight)     $('ft-goal-weight').value = goal.weight;
+  if (goal.muscle)     $('ft-goal-muscle').value = goal.muscle;
+  if (goal.fat)        $('ft-goal-fat').value = goal.fat;
+  if (goal.vision)     $('ft-goal-vision').value = goal.vision;
+  if (goal.targetCal  && $('ft-meal-target-cal'))     $('ft-meal-target-cal').value = goal.targetCal;
+  if (goal.targetProt && $('ft-meal-target-protein')) $('ft-meal-target-protein').value = goal.targetProt;
+}
+
+function updateFitnessUI() {
+  const type = $('ft-type').value;
+  $('ft-gym-area').style.display   = type === 'gym' ? '' : 'none';
+  $('ft-bw-area').style.display    = type === 'bodyweight' ? '' : 'none';
+}
+
+function toggleGymCustom() {
+  const sel = $('ft-gym-exercise');
+  const row = $('ft-gym-custom-row');
+  if (row) row.style.display = sel.value === 'その他' ? '' : 'none';
+}
+
+let _selectedBWEx = '腕立て伏せ';
+function selectBWEx(el, name) {
+  _selectedBWEx = name;
+  document.querySelectorAll('.ft-bw-btn').forEach(b => b.classList.remove('sel'));
+  el.classList.add('sel');
+}
+
+function saveTraining() {
+  const type = $('ft-type').value;
+  let entry = { date: $('ft-date').value || todayStr(), type };
+  if (type === 'gym') {
+    const exSel = $('ft-gym-exercise').value;
+    const ex    = exSel === 'その他' ? ($('ft-gym-custom').value.trim() || 'その他') : exSel;
+    const wt   = $('ft-weight').value;
+    const sets = $('ft-sets').value;
+    const reps = $('ft-reps').value;
+    if (!ex) { showToast('⚠️ 種目を選んでください'); return; }
+    entry.name = ex;
+    entry.weight = wt;
+    entry.sets = sets;
+    entry.reps = reps;
+    entry.exercises = `${ex} ${wt}kg×${reps}rep×${sets}set`;
+  } else {
+    if (!_selectedBWEx) { showToast('⚠️ 種目を選んでください'); return; }
+    const sets  = $('ft-bw-sets').value;
+    const count = $('ft-bw-count').value;
+    entry.name = _selectedBWEx;
+    entry.sets = sets;
+    entry.reps = count;
+    entry.exercises = `${_selectedBWEx} ${count}回×${sets}set`;
+  }
+  const list = load(KEYS.fitness);
+  list.push(entry);
+  localStorage.setItem(KEYS.fitness, JSON.stringify(list));
+  renderFitnessList();
+  showToast('💪 トレーニングを記録しました');
+}
+
+function renderFitnessList() {
+  const list = load(KEYS.fitness);
+  const el = $('ft-list');
+  if (!el) return;
+
+  // Weekly stats
+  const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekStr = weekAgo.toISOString().slice(0,10);
+  const weekSessions = list.filter(s => s.date >= weekStr);
+  const weekSets = weekSessions.reduce((s,e) => s + (parseInt(e.sets)||0), 0);
+  const sessEl = $('ft-week-sessions'); if (sessEl) sessEl.textContent = weekSessions.length;
+  const setsEl = $('ft-week-sets');     if (setsEl) setsEl.textContent = weekSets;
+
+  if (!list.length) { el.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:12px">記録がありません</p>'; return; }
+  el.innerHTML = list.slice(-20).reverse().map(s =>
+    `<div class="record-item">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-weight:600">${s.date} <span style="color:var(--primary-dark)">${s.type==='gym'?'🏋️':'🏃'}</span></span>
+        <span style="font-size:12px;color:var(--text-muted)">${s.sets||0}セット</span>
+      </div>
+      <div style="color:var(--text-muted);font-size:13px;margin-top:4px">${s.exercises||s.name||''}</div>
+    </div>`
+  ).join('');
+}
+
+function saveFitnessMeal() {
+  const memo = $('ft-meal-input').value.trim();
+  if (!memo) { showToast('⚠️ 食事内容を入力してください'); return; }
+  const cal  = parseInt($('ft-meal-cal').value)  || 0;
+  const prot = parseInt($('ft-meal-protein').value) || 0;
+  const entry = { date: todayStr(), memo, cal, protein: prot };
+  const list = load(KEYS.fitness_meals);
+  list.push(entry);
+  localStorage.setItem(KEYS.fitness_meals, JSON.stringify(list));
+  $('ft-meal-input').value = '';
+  $('ft-meal-cal').value = '';
+  $('ft-meal-protein').value = '';
+  renderFitnessMealList();
+  showToast('🍽️ 食事を記録しました');
+}
+
+function renderFitnessMealList() {
+  const list = load(KEYS.fitness_meals);
+  const el = $('ft-meal-list');
+  if (!el) return;
+  if (!list.length) { el.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:12px">記録がありません</p>'; return; }
+  el.innerHTML = list.slice(-10).reverse().map(m =>
+    `<div class="record-item">
+      <div style="display:flex;justify-content:space-between">
+        <span style="font-weight:600">${m.date}</span>
+        <span style="font-size:12px;color:var(--primary-dark)">${m.cal||0}kcal / タンパク質${m.protein||0}g</span>
+      </div>
+      <div style="color:var(--text-muted);font-size:13px;margin-top:4px">${m.memo}</div>
+    </div>`
+  ).join('');
+}
+
+async function analyzeFitnessMeal() {
+  const memo = $('ft-meal-input').value.trim() || (load(KEYS.fitness_meals).slice(-1)[0]?.memo || '');
+  if (!memo) { showToast('⚠️ 食事内容を入力してください'); return; }
+  const goals = loadObj(KEYS.fitness_goals);
+  const targetCal  = $('ft-meal-target-cal').value  || '2000';
+  const targetProt = $('ft-meal-target-protein').value || '150';
+  showToast('🤖 AI分析中...');
+  try {
+    const resp = await claudeFetch({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 400,
+      messages: [{
+        role: 'user',
+        content: `筋トレしている人の食事をAIアドバイザーとして評価してください。\n目標カロリー:${targetCal}kcal, 目標タンパク質:${targetProt}g\n筋トレ目標: 体重${goals.weight||'未設定'}kg, 体脂肪率${goals.fat||'未設定'}%\n今日の食事: ${memo}\n200文字以内で、不足栄養素と改善提案を具体的に教えてください。`
+      }]
+    });
+    const data = await resp.json();
+    const reply = data.content?.[0]?.text || 'エラーが発生しました';
+    showToast('');
+    // Show as notification below meal input
+    let fbEl = $('ft-meal-feedback');
+    if (!fbEl) {
+      fbEl = document.createElement('div');
+      fbEl.id = 'ft-meal-feedback';
+      fbEl.style.cssText = 'background:var(--primary-light);border:1px solid var(--primary);border-radius:10px;padding:12px;margin-top:8px;font-size:13px;line-height:1.6;color:var(--text)';
+      $('ft-meal-list').before(fbEl);
+    }
+    fbEl.textContent = '🤖 ' + reply;
+  } catch(e) {
+    showToast('❌ エラー: ' + e.message);
+  }
+}
+
+
 </script>
 </body>
 </html>
