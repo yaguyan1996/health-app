@@ -993,6 +993,95 @@
     <!-- Tab 2: 食事 -->
     <div id="panel-diet" class="tab-panel">
 
+      <!-- BMR / TDEE / PFC Calculator -->
+      <div class="card">
+        <div class="card-title">🧮 基礎代謝・1日の目標</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>身長 (cm)</label>
+            <input type="number" id="bmr-height" placeholder="170" min="100" max="250" oninput="calcBMR()">
+          </div>
+          <div class="form-group">
+            <label>体重 (kg)</label>
+            <input type="number" id="bmr-weight" placeholder="65" step="0.1" oninput="calcBMR()">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>年齢</label>
+            <input type="number" id="bmr-age" placeholder="25" min="10" max="100" oninput="calcBMR()">
+          </div>
+          <div class="form-group">
+            <label>性別</label>
+            <select id="bmr-sex" onchange="calcBMR()">
+              <option value="male">男性</option>
+              <option value="female">女性</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>活動量</label>
+            <select id="bmr-activity" onchange="calcBMR()">
+              <option value="1.2">低い（デスクワーク中心）</option>
+              <option value="1.375">やや低い（週1〜2回運動）</option>
+              <option value="1.55" selected>普通（週3〜5回運動）</option>
+              <option value="1.725">やや高い（週6〜7回運動）</option>
+              <option value="1.9">高い（肉体労働・競技）</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>目的</label>
+            <select id="bmr-goal" onchange="calcBMR()">
+              <option value="maintain">体重維持</option>
+              <option value="gain">筋肉増量（+300kcal）</option>
+              <option value="loss">減量（−500kcal）</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="bmr-result" style="display:none;background:var(--primary-light);border-radius:10px;padding:12px;margin-top:8px">
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;margin-bottom:10px">
+            <div>
+              <div style="font-size:11px;color:var(--text-muted)">基礎代謝</div>
+              <div style="font-size:18px;font-weight:800;color:var(--primary-dark)" id="bmr-val">—</div>
+              <div style="font-size:10px;color:var(--text-muted)">kcal</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text-muted)">消費カロリー</div>
+              <div style="font-size:18px;font-weight:800;color:var(--primary-dark)" id="tdee-val">—</div>
+              <div style="font-size:10px;color:var(--text-muted)">kcal/日</div>
+            </div>
+            <div>
+              <div style="font-size:11px;color:var(--text-muted)">目標摂取量</div>
+              <div style="font-size:18px;font-weight:800;color:var(--primary-dark)" id="target-cal-val">—</div>
+              <div style="font-size:10px;color:var(--text-muted)">kcal/日</div>
+            </div>
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:10px">
+            <div style="font-size:12px;font-weight:700;margin-bottom:6px;color:var(--text)">📊 PFC目標（1日）</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center">
+              <div style="background:rgba(239,108,0,0.1);border-radius:8px;padding:8px">
+                <div style="font-size:10px;color:var(--text-muted)">タンパク質</div>
+                <div style="font-size:16px;font-weight:800;color:#ef6c00" id="pfc-p-g">—g</div>
+                <div style="font-size:10px;color:var(--text-muted)" id="pfc-p-pct">—%</div>
+              </div>
+              <div style="background:rgba(21,128,61,0.1);border-radius:8px;padding:8px">
+                <div style="font-size:10px;color:var(--text-muted)">脂質</div>
+                <div style="font-size:16px;font-weight:800;color:#15803d" id="pfc-f-g">—g</div>
+                <div style="font-size:10px;color:var(--text-muted)" id="pfc-f-pct">—%</div>
+              </div>
+              <div style="background:rgba(37,99,235,0.1);border-radius:8px;padding:8px">
+                <div style="font-size:10px;color:var(--text-muted)">炭水化物</div>
+                <div style="font-size:16px;font-weight:800;color:#2563eb" id="pfc-c-g">—g</div>
+                <div style="font-size:10px;color:var(--text-muted)" id="pfc-c-pct">—%</div>
+              </div>
+            </div>
+          </div>
+          <button class="btn-primary" style="margin-top:10px;width:100%" onclick="applyBMRToGoal()">✅ この目標を食事管理に反映する</button>
+        </div>
+      </div>
+
       <div class="card">
         <div class="card-title">食事・カロリー 記録</div>
 
@@ -1052,6 +1141,20 @@
             <input type="number" id="d-cal" placeholder="500" min="0" max="9999">
           </div>
         </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>タンパク質 (g)</label>
+            <input type="number" id="d-protein" placeholder="20" min="0" step="0.1">
+          </div>
+          <div class="form-group">
+            <label>脂質 (g)</label>
+            <input type="number" id="d-fat" placeholder="10" min="0" step="0.1">
+          </div>
+          <div class="form-group">
+            <label>炭水化物 (g)</label>
+            <input type="number" id="d-carb" placeholder="60" min="0" step="0.1">
+          </div>
+        </div>
         <button class="btn-primary" onclick="saveDiet()">保存する</button>
       </div>
 
@@ -1069,6 +1172,32 @@
           <div class="progress-bar" id="d-progress-bar" style="width:0%"></div>
         </div>
         <div style="font-size:11px; color:var(--text-muted); margin-top:4px; text-align:right" id="d-progress-text">0 / 2000 kcal</div>
+
+        <!-- PFC Progress -->
+        <div id="pfc-progress-section" style="margin-top:14px;display:none">
+          <div style="font-size:12px;font-weight:700;margin-bottom:8px">📊 PFC 進捗（今日）</div>
+          <div style="margin-bottom:6px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+              <span style="color:#ef6c00;font-weight:700">🥩 タンパク質</span>
+              <span id="pfc-p-progress-text" style="color:var(--text-muted)">0 / —g</span>
+            </div>
+            <div class="progress-wrap"><div id="pfc-p-bar" style="height:8px;background:#ef6c00;border-radius:4px;width:0%;transition:width 0.3s"></div></div>
+          </div>
+          <div style="margin-bottom:6px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+              <span style="color:#15803d;font-weight:700">🧈 脂質</span>
+              <span id="pfc-f-progress-text" style="color:var(--text-muted)">0 / —g</span>
+            </div>
+            <div class="progress-wrap"><div id="pfc-f-bar" style="height:8px;background:#15803d;border-radius:4px;width:0%;transition:width 0.3s"></div></div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px">
+              <span style="color:#2563eb;font-weight:700">🍚 炭水化物</span>
+              <span id="pfc-c-progress-text" style="color:var(--text-muted)">0 / —g</span>
+            </div>
+            <div class="progress-wrap"><div id="pfc-c-bar" style="height:8px;background:#2563eb;border-radius:4px;width:0%;transition:width 0.3s"></div></div>
+          </div>
+        </div>
       </div>
 
       <div class="card">
@@ -1944,6 +2073,8 @@ const KEYS = {
   get fitness()       { return 'hm_fitness_'       + _userId; },
   get fitness_meals() { return 'hm_fitness_meals_' + _userId; },
   get fitness_goals() { return 'hm_fitness_goals_' + _userId; },
+  get body_profile()  { return 'hm_body_profile_'  + _userId; },
+  get pfc_targets()   { return 'hm_pfc_targets_'   + _userId; },
 };
 
 function load(key) {
@@ -1990,6 +2121,7 @@ function switchTab(name) {
     if (name === 'visits') renderVisits();
     if (name === 'mental') renderMental();
     if (name === 'fitness') { loadFitnessGoal(); renderFitnessList(); renderFitnessMealList(); updateFitnessUI(); }
+    if (name === 'diet') loadBodyProfile();
   });
 }
 
@@ -2357,6 +2489,25 @@ function renderDiet() {
   bar.className = 'progress-bar' + (totalCal > goal ? ' over' : '');
   $('d-progress-text').textContent = `${totalCal} / ${goal} kcal`;
 
+  // PFC progress bars
+  const pfcTargets = loadObj(KEYS.pfc_targets);
+  const pfcSection = $('pfc-progress-section');
+  if (pfcTargets.p && pfcSection) {
+    pfcSection.style.display = '';
+    const totP = todayEntries.reduce((s,e)=>s+(e.protein||0),0);
+    const totF = todayEntries.reduce((s,e)=>s+(e.fat||0),0);
+    const totC = todayEntries.reduce((s,e)=>s+(e.carb||0),0);
+    const clamp = (v,max)=>Math.min(v/max*100,100)+'%';
+    $('pfc-p-bar').style.width = clamp(totP, pfcTargets.p);
+    $('pfc-f-bar').style.width = clamp(totF, pfcTargets.f);
+    $('pfc-c-bar').style.width = clamp(totC, pfcTargets.c);
+    $('pfc-p-progress-text').textContent = `${totP.toFixed(1)} / ${pfcTargets.p}g`;
+    $('pfc-f-progress-text').textContent = `${totF.toFixed(1)} / ${pfcTargets.f}g`;
+    $('pfc-c-progress-text').textContent = `${totC.toFixed(1)} / ${pfcTargets.c}g`;
+  } else if (pfcSection) {
+    pfcSection.style.display = 'none';
+  }
+
   // Today's meal list grouped by type
   const mealTypes = ['朝食', '昼食', '夕食', '間食'];
   const mealIcons = { '朝食': '🌅', '昼食': '☀️', '夕食': '🌙', '間食': '🍪' };
@@ -2379,7 +2530,7 @@ function renderDiet() {
         items.map(e => `<li class="entry-item">
           <div class="entry-info">
             <div class="entry-main">${e.food}</div>
-            <div class="entry-sub">${e.calories} kcal</div>
+            <div class="entry-sub">${e.calories} kcal${e.protein||e.fat||e.carb ? ` | P${e.protein||0}g F${e.fat||0}g C${e.carb||0}g` : ''}</div>
           </div>
           <button class="btn-delete" onclick="deleteDiet('${e.id}')">✕</button>
         </li>`).join('') +
@@ -2409,7 +2560,11 @@ function saveDiet() {
     return;
   }
 
-  const entry = { id: uid(), date, type, food, calories };
+  const protein = parseFloat($('d-protein').value) || 0;
+  const fat     = parseFloat($('d-fat').value)     || 0;
+  const carb    = parseFloat($('d-carb').value)    || 0;
+
+  const entry = { id: uid(), date, type, food, calories, protein, fat, carb };
   const entries = load(KEYS.diet);
   entries.push(entry);
   save(KEYS.diet, entries);
@@ -2417,6 +2572,9 @@ function saveDiet() {
   showToast('✅ 食事を保存しました');
   $('d-food').value = '';
   $('d-cal').value = '';
+  $('d-protein').value = '';
+  $('d-fat').value = '';
+  $('d-carb').value = '';
   renderDiet();
 }
 
@@ -3681,6 +3839,81 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   // else: show login overlay (already visible by default)
 });
+
+/* ====================== BMR / PFC ====================== */
+
+function calcBMR() {
+  const h = parseFloat($('bmr-height').value);
+  const w = parseFloat($('bmr-weight').value);
+  const a = parseFloat($('bmr-age').value);
+  const sex = $('bmr-sex').value;
+  const act = parseFloat($('bmr-activity').value);
+  const goal = $('bmr-goal').value;
+
+  if (!h || !w || !a) { $('bmr-result').style.display='none'; return; }
+
+  // Harris-Benedict revised
+  const bmr = sex === 'male'
+    ? 88.362 + 13.397*w + 4.799*h - 5.677*a
+    : 447.593 + 9.247*w + 3.098*h - 4.330*a;
+  const tdee = Math.round(bmr * act);
+  const targetCal = goal === 'gain' ? tdee + 300 : goal === 'loss' ? tdee - 500 : tdee;
+
+  // PFC ratio by goal
+  const ratios = {
+    gain:     { p: 0.30, f: 0.25, c: 0.45 },
+    loss:     { p: 0.35, f: 0.25, c: 0.40 },
+    maintain: { p: 0.20, f: 0.25, c: 0.55 },
+  };
+  const r = ratios[goal];
+  const pG = Math.round(targetCal * r.p / 4);
+  const fG = Math.round(targetCal * r.f / 9);
+  const cG = Math.round(targetCal * r.c / 4);
+
+  $('bmr-val').textContent = Math.round(bmr);
+  $('tdee-val').textContent = tdee;
+  $('target-cal-val').textContent = targetCal;
+  $('pfc-p-g').textContent = pG + 'g';
+  $('pfc-f-g').textContent = fG + 'g';
+  $('pfc-c-g').textContent = cG + 'g';
+  $('pfc-p-pct').textContent = Math.round(r.p*100) + '%';
+  $('pfc-f-pct').textContent = Math.round(r.f*100) + '%';
+  $('pfc-c-pct').textContent = Math.round(r.c*100) + '%';
+  $('bmr-result').style.display = '';
+
+  // Save body profile
+  const profile = { h, w, a, sex, act, goal };
+  localStorage.setItem(KEYS.body_profile, JSON.stringify(profile));
+}
+
+function applyBMRToGoal() {
+  const targetCal = parseInt($('target-cal-val').textContent);
+  const pG = parseInt($('pfc-p-g').textContent);
+  const fG = parseInt($('pfc-f-g').textContent);
+  const cG = parseInt($('pfc-c-g').textContent);
+  if (!targetCal) return;
+
+  // Set calorie goal
+  $('d-goal').value = targetCal;
+  saveDietGoal();
+
+  // Save PFC targets
+  localStorage.setItem(KEYS.pfc_targets, JSON.stringify({ p: pG, f: fG, c: cG }));
+  renderDiet();
+  showToast('✅ 目標を食事管理に反映しました');
+}
+
+function loadBodyProfile() {
+  const p = JSON.parse(localStorage.getItem(KEYS.body_profile) || 'null');
+  if (!p) return;
+  $('bmr-height').value = p.h;
+  $('bmr-weight').value = p.w;
+  $('bmr-age').value = p.a;
+  $('bmr-sex').value = p.sex;
+  $('bmr-activity').value = p.act;
+  $('bmr-goal').value = p.goal;
+  calcBMR();
+}
 
 /* ====================== FITNESS TAB ====================== */
 
