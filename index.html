@@ -1078,7 +1078,7 @@
               </div>
             </div>
           </div>
-          <button class="btn-primary" style="margin-top:10px;width:100%" onclick="applyBMRToGoal()">✅ この目標を食事管理に反映する</button>
+          <div style="margin-top:8px;font-size:11px;color:var(--text-muted);text-align:center">✅ 入力内容が食事目標に自動反映されます</div>
         </div>
       </div>
 
@@ -3884,6 +3884,14 @@ function calcBMR() {
   // Save body profile
   const profile = { h, w, a, sex, act, goal };
   localStorage.setItem(KEYS.body_profile, JSON.stringify(profile));
+
+  // Auto-apply to diet goal and PFC targets
+  $('d-goal').value = targetCal;
+  const s = loadObj(KEYS.settings);
+  s.dietGoal = targetCal;
+  save(KEYS.settings, s);
+  localStorage.setItem(KEYS.pfc_targets, JSON.stringify({ p: pG, f: fG, c: cG }));
+  renderDiet();
 }
 
 function applyBMRToGoal() {
