@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="HealthApp">
   <title>健康管理アプリ</title>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Supabase SDK removed: using local account auth -->
   <style>
     * {
       box-sizing: border-box;
@@ -1877,39 +1877,18 @@
 
 <script>
 // ============================================================
-// Supabase Auth & Sync
+// Local Account Auth (no server required — SHA-256 password hashing)
 // ============================================================
-let _sb = null;
 let _currentUser = null;
+const ACCOUNTS_KEY = 'hm_accounts_v1';
 
-const SB_DEFAULT = {
-  url: 'https://bvrqpionvrnjjtillhsk.supabase.co',
-  key: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ2cnFwaW9udnJuamp0aWxsaHNrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA5MTUxNjEsImV4cCI6MjA5NjQ5MTE2MX0.1vhKaQkmZn8OLFmRN2ZZ0GArzC5g3hTFifac--uZ2L4'
-};
-
-function getSbConfig() {
-  try { return JSON.parse(localStorage.getItem('hm_sb_config') || 'null'); } catch { return null; }
+async function _hashPw(pw) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pw));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function initSb(url, key) {
-  _sb = window.supabase.createClient(url, key);
-  return _sb;
-}
-
-function saveSbConfig() {
-  const url = $('sb-url').value.trim();
-  const key = $('sb-key').value.trim();
-  if (!url || !key) { $('sb-config-error').textContent = 'URLとKeyを入力してください'; return; }
-  if (!url.startsWith('https://')) { $('sb-config-error').textContent = 'URLは https:// から始まります'; return; }
-  localStorage.setItem('hm_sb_config', JSON.stringify({ url, key }));
-  initSb(url, key);
-  $('sb-setup-section').style.display = 'none';
-  $('sb-auth-section').style.display = 'block';
-}
-
-function resetSbConfig() {
-  localStorage.removeItem('hm_sb_config');
-  location.reload();
+function _getAccounts() {
+  try { return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) || '{}'); } catch { return {}; }
 }
 
 function showTab(tab) {
@@ -1920,25 +1899,18 @@ function showTab(tab) {
 }
 
 async function doLogin() {
-  const email = $('login-email').value.trim();
+  const email = $('login-email').value.trim().toLowerCase();
   const pw = $('login-pw').value;
   if (!email || !pw) { $('login-error').textContent = 'メールアドレスとパスワードを入力してください'; return; }
   const btn = $('login-btn');
   btn.textContent = 'ログイン中...'; btn.disabled = true;
   $('login-error').textContent = '';
   try {
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('接続タイムアウト。ネット環境を確認してください')), 10000));
-    const { data, error } = await Promise.race([_sb.auth.signInWithPassword({ email, password: pw }), timeout]);
-    if (error) {
-      const msg = error.message === 'Invalid login credentials'
-        ? 'メールアドレスまたはパスワードが違います'
-        : error.message === 'Email not confirmed'
-        ? 'メール確認が完了していません。受信箱をご確認ください'
-        : error.message;
-      $('login-error').textContent = msg;
-      return;
-    }
-    await onLoginSuccess(data.user);
+    const accounts = _getAccounts();
+    if (!accounts[email]) { $('login-error').textContent = 'アカウントが見つかりません。新規登録してください'; return; }
+    const hash = await _hashPw(pw);
+    if (accounts[email].passwordHash !== hash) { $('login-error').textContent = 'パスワードが違います'; return; }
+    onLoginSuccess({ email, id: accounts[email].id });
   } catch(e) {
     $('login-error').textContent = e.message;
   } finally {
@@ -1947,7 +1919,7 @@ async function doLogin() {
 }
 
 async function doSignup() {
-  const email = $('signup-email').value.trim();
+  const email = $('signup-email').value.trim().toLowerCase();
   const pw = $('signup-pw').value;
   if (!email || !pw) { $('signup-error').textContent = 'メールアドレスとパスワードを入力してください'; return; }
   if (pw.length < 6) { $('signup-error').textContent = 'パスワードは6文字以上にしてください'; return; }
@@ -1955,17 +1927,13 @@ async function doSignup() {
   btn.textContent = '登録中...'; btn.disabled = true;
   $('signup-error').textContent = '';
   try {
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('接続タイムアウト。ネット環境を確認してください')), 10000));
-    const { data, error } = await Promise.race([_sb.auth.signUp({ email, password: pw }), timeout]);
-    if (error) { $('signup-error').textContent = error.message; return; }
-    if (data.session && data.user) {
-      // Email confirmation disabled — logged in immediately
-      await onLoginSuccess(data.user);
-    } else {
-      // Email confirmation required
-      $('signup-error').style.color = 'var(--primary-dark)';
-      $('signup-error').textContent = '✅ 登録完了！確認メールを送りました。メールのリンクをクリックしてからログインしてください。';
-    }
+    const accounts = _getAccounts();
+    if (accounts[email]) { $('signup-error').textContent = 'このメールアドレスは既に登録されています'; return; }
+    const hash = await _hashPw(pw);
+    const id = 'u_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    accounts[email] = { passwordHash: hash, id, createdAt: new Date().toISOString() };
+    localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts));
+    onLoginSuccess({ email, id });
   } catch(e) {
     $('signup-error').textContent = e.message;
   } finally {
@@ -1973,19 +1941,19 @@ async function doSignup() {
   }
 }
 
-async function doLogout() {
-  await _sb.auth.signOut();
+function doLogout() {
+  localStorage.removeItem('hm_session');
   location.reload();
 }
 
-async function onLoginSuccess(user) {
+function onLoginSuccess(user) {
   _currentUser = user;
   _userId = user.id;
+  localStorage.setItem('hm_session', JSON.stringify({ email: user.email, id: user.id }));
   $('login-overlay').style.display = 'none';
   $('user-email-display').textContent = user.email.split('@')[0];
   $('btn-account').textContent = 'ログアウト';
   $('btn-account').onclick = doLogout;
-  await syncFromCloud();
   initApp();
 }
 
@@ -2011,51 +1979,12 @@ function closeLoginOverlay() {
 }
 
 // ============================================================
-// Cloud Sync
+// Cloud Sync (no-op: local-only mode)
 // ============================================================
-const TABLE_MAP = {
-  weight: 'hm_weight_entries',
-  diet: 'hm_diet_entries',
-  exercise: 'hm_exercise_entries',
-  sleep: 'hm_sleep_entries',
-  visits: 'hm_visit_entries',
-  mental: 'hm_mental_entries',
-};
-
-async function syncFromCloud() {
-  if (!_sb || !_currentUser) return;
-  for (const [key, table] of Object.entries(TABLE_MAP)) {
-    try {
-      const { data, error } = await _sb.from(table).select('*').eq('user_id', _currentUser.id);
-      if (error) continue;
-      const entries = data.map(({ user_id, created_at, ...rest }) => rest);
-      save(KEYS[key], entries);
-    } catch(e) {}
-  }
-  try {
-    const { data } = await _sb.from('hm_user_settings').select('settings').eq('user_id', _currentUser.id).single();
-    if (data && data.settings) save(KEYS.settings, data.settings);
-  } catch(e) {}
-  try {
-    const { data } = await _sb.from('hm_karte').select('data').eq('user_id', _currentUser.id).single();
-    if (data && data.data) localStorage.setItem(KEYS.karte, JSON.stringify(data.data));
-  } catch(e) {}
-}
-
-async function sbUpsert(tableKey, entry) {
-  if (!_sb || !_currentUser) return;
-  try { await _sb.from(TABLE_MAP[tableKey]).upsert({ ...entry, user_id: _currentUser.id }); } catch(e) {}
-}
-
-async function sbDelete(tableKey, id) {
-  if (!_sb || !_currentUser) return;
-  try { await _sb.from(TABLE_MAP[tableKey]).delete().eq('id', id).eq('user_id', _currentUser.id); } catch(e) {}
-}
-
-async function sbSaveSettings(settings) {
-  if (!_sb || !_currentUser) return;
-  try { await _sb.from('hm_user_settings').upsert({ user_id: _currentUser.id, settings }); } catch(e) {}
-}
+async function syncFromCloud() {}
+async function sbUpsert() {}
+async function sbDelete() {}
+async function sbSaveSettings() {}
 
 // ============================================================
 // Utilities
@@ -3157,10 +3086,7 @@ function loadKarte() {
 }
 function saveKarteData(k) { localStorage.setItem(KEYS.karte, JSON.stringify(k)); sbSaveKarte(k); }
 
-async function sbSaveKarte(k) {
-  if (!_sb || !_currentUser) return;
-  try { await _sb.from('hm_karte').upsert({ user_id: _currentUser.id, data: k }); } catch(e) {}
-}
+async function sbSaveKarte(k) {}
 
 function renderKarte() {
   const k = loadKarte();
@@ -3850,22 +3776,14 @@ function initApp() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', async () => {
-  const cfg = getSbConfig() || SB_DEFAULT;
-  initSb(cfg.url, cfg.key);
-
+document.addEventListener('DOMContentLoaded', () => {
   try {
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
-    const { data: { session } } = await Promise.race([_sb.auth.getSession(), timeout]);
-    if (session && session.user) {
-      await onLoginSuccess(session.user);
+    const session = JSON.parse(localStorage.getItem('hm_session') || 'null');
+    if (session && session.email && session.id) {
+      onLoginSuccess(session);
       return;
     }
-  } catch (e) {
-    // Supabase unavailable — show login with error hint
-    $('login-error').textContent = '⚠️ サーバー接続に問題があります。ゲストとして使うこともできます。';
-  }
-  // Show login screen
+  } catch(e) {}
   $('login-overlay').style.display = '';
 });
 
