@@ -861,54 +861,31 @@
 </head>
 <body>
 
-<!-- Login Overlay -->
-<div id="login-overlay">
+<!-- Login Overlay (hidden by default — app starts immediately) -->
+<div id="login-overlay" style="display:none">
   <div class="login-box">
     <h2>💪 健康管理アプリ</h2>
-
-    <!-- Supabase Setup (shown when not configured) -->
-    <div id="sb-setup-section">
-      <p class="login-setup">
-        初回のみ：<a href="https://supabase.com" target="_blank">supabase.com</a> で無料プロジェクトを作成し、<br>
-        Project URL と anon key を入力してください。
-      </p>
-      <div class="login-field" style="margin-top:12px">
-        <label>Project URL</label>
-        <input type="text" id="sb-url" placeholder="https://xxxx.supabase.co">
-      </div>
-      <div class="login-field">
-        <label>Anon Key</label>
-        <input type="text" id="sb-key" placeholder="eyJhbGci...">
-      </div>
-      <button class="login-submit" onclick="saveSbConfig()">設定を保存して続ける</button>
-      <div class="login-error" id="sb-config-error"></div>
-    </div>
-
-    <!-- Login / Signup (shown when Supabase is configured) -->
-    <div id="sb-auth-section" style="display:none">
+    <div id="sb-setup-section" style="display:none"></div>
+    <div id="sb-auth-section">
       <div class="login-tabs">
         <button class="active" id="btn-login-tab" onclick="showTab('login')">ログイン</button>
         <button id="btn-signup-tab" onclick="showTab('signup')">新規登録</button>
       </div>
-
       <div id="login-form-box">
         <div class="login-field"><label>メールアドレス</label><input type="email" id="login-email" placeholder="example@mail.com"></div>
         <div class="login-field"><label>パスワード</label><input type="password" id="login-pw" placeholder="パスワード"></div>
         <button class="login-submit" onclick="doLogin()">ログイン</button>
         <div class="login-error" id="login-error"></div>
-        <div style="margin-top:12px;text-align:center">
-          <button onclick="useGuestMode()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;text-decoration:underline">ログインせずに使う（ゲストモード）</button>
-        </div>
       </div>
-
       <div id="signup-form-box" style="display:none">
         <div class="login-field"><label>メールアドレス</label><input type="email" id="signup-email" placeholder="example@mail.com"></div>
         <div class="login-field"><label>パスワード（6文字以上）</label><input type="password" id="signup-pw" placeholder="パスワード"></div>
         <button class="login-submit" onclick="doSignup()">アカウント作成</button>
         <div class="login-error" id="signup-error"></div>
       </div>
-
-      <p style="font-size:11px;color:var(--text-muted);margin-top:14px;text-align:center;cursor:pointer" onclick="resetSbConfig()">⚙️ Supabase設定を変更</p>
+      <div style="margin-top:12px;text-align:center">
+        <button onclick="closeLoginOverlay()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;text-decoration:underline">キャンセル</button>
+      </div>
     </div>
   </div>
 </div>
@@ -916,9 +893,9 @@
 <div id="app">
   <header class="header">
     <h1>💪 健康管理アプリ</h1>
-    <div class="header-user" id="header-user" style="display:none">
-      <span id="user-email-display"></span>
-      <button class="btn-logout" onclick="doLogout()">ログアウト</button>
+    <div class="header-user" id="header-user" style="display:flex">
+      <span id="user-email-display">ローカル</span>
+      <button class="btn-logout" id="btn-account" onclick="openAccountMenu()">アカウント</button>
     </div>
   </header>
 
@@ -1932,7 +1909,9 @@ async function doLogin() {
   if (!email || !pw) return;
   $('login-error').textContent = 'ログイン中...';
   try {
-    const { data, error } = await _sb.auth.signInWithPassword({ email, password: pw });
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('接続タイムアウト。ゲストモードをお試しください')), 8000));
+    const loginReq = _sb.auth.signInWithPassword({ email, password: pw });
+    const { data, error } = await Promise.race([loginReq, timeout]);
     if (error) { $('login-error').textContent = 'エラー: ' + (error.message === 'Invalid login credentials' ? 'メールアドレスかパスワードが違います' : error.message); return; }
     await onLoginSuccess(data.user);
   } catch(e) {
@@ -1971,18 +1950,33 @@ async function onLoginSuccess(user) {
   _currentUser = user;
   _userId = user.id;
   $('login-overlay').style.display = 'none';
-  $('header-user').style.display = 'flex';
   $('user-email-display').textContent = user.email;
+  $('btn-account').textContent = 'ログアウト';
+  $('btn-account').onclick = doLogout;
   await syncFromCloud();
   initApp();
+  showToast('✅ ログイン成功: ' + user.email);
 }
 
 function useGuestMode() {
-  _userId = 'guest';
+  _userId = 'local';
   $('login-overlay').style.display = 'none';
-  $('header-user').style.display = 'flex';
-  $('user-email-display').textContent = 'ゲスト';
+  $('user-email-display').textContent = 'ローカル';
+  $('btn-account').textContent = 'アカウント';
+  $('btn-account').onclick = openAccountMenu;
   initApp();
+}
+
+function openAccountMenu() {
+  if (_currentUser) {
+    if (confirm('ログアウトしますか？')) doLogout();
+  } else {
+    $('login-overlay').style.display = '';
+  }
+}
+
+function closeLoginOverlay() {
+  $('login-overlay').style.display = 'none';
 }
 
 // ============================================================
@@ -3826,18 +3820,28 @@ function initApp() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  const cfg = getSbConfig() || SB_DEFAULT;
-  initSb(cfg.url, cfg.key);
+  // Start immediately in local mode — no login required
+  useGuestMode();
 
-  $('sb-setup-section').style.display = 'none';
-  $('sb-auth-section').style.display = '';
-
-  // Check existing session
-  const { data: { session } } = await _sb.auth.getSession();
-  if (session && session.user) {
-    await onLoginSuccess(session.user);
+  // Try Supabase in background (non-blocking)
+  try {
+    const cfg = getSbConfig() || SB_DEFAULT;
+    initSb(cfg.url, cfg.key);
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000));
+    const { data: { session } } = await Promise.race([_sb.auth.getSession(), timeout]);
+    if (session && session.user) {
+      // Silently upgrade to cloud account
+      _currentUser = session.user;
+      _userId = session.user.id;
+      $('user-email-display').textContent = session.user.email;
+      $('btn-account').textContent = 'ログアウト';
+      $('btn-account').onclick = doLogout;
+      await syncFromCloud();
+      renderWeight(); renderDiet();
+    }
+  } catch (e) {
+    // Supabase unavailable — stay in local mode
   }
-  // else: show login overlay (already visible by default)
 });
 
 /* ====================== BMR / PFC ====================== */
