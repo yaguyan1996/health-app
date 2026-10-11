@@ -861,8 +861,8 @@
 </head>
 <body>
 
-<!-- Login Overlay (hidden by default — app starts immediately) -->
-<div id="login-overlay" style="display:none">
+<!-- Login Overlay -->
+<div id="login-overlay">
   <div class="login-box">
     <h2>💪 健康管理アプリ</h2>
     <div id="sb-setup-section" style="display:none"></div>
@@ -871,20 +871,36 @@
         <button class="active" id="btn-login-tab" onclick="showTab('login')">ログイン</button>
         <button id="btn-signup-tab" onclick="showTab('signup')">新規登録</button>
       </div>
+
+      <!-- ログイン -->
       <div id="login-form-box">
-        <div class="login-field"><label>メールアドレス</label><input type="email" id="login-email" placeholder="example@mail.com"></div>
-        <div class="login-field"><label>パスワード</label><input type="password" id="login-pw" placeholder="パスワード"></div>
-        <button class="login-submit" onclick="doLogin()">ログイン</button>
+        <div class="login-field">
+          <label>メールアドレス</label>
+          <input type="email" id="login-email" placeholder="example@mail.com" autocomplete="email">
+        </div>
+        <div class="login-field">
+          <label>パスワード</label>
+          <input type="password" id="login-pw" placeholder="パスワード" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <button class="login-submit" id="login-btn" onclick="doLogin()">ログイン</button>
         <div class="login-error" id="login-error"></div>
+        <div style="margin-top:16px;text-align:center;border-top:1px solid var(--border);padding-top:14px">
+          <button onclick="useGuestMode()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;text-decoration:underline">ゲストとして使う（データはこの端末のみ）</button>
+        </div>
       </div>
+
+      <!-- 新規登録 -->
       <div id="signup-form-box" style="display:none">
-        <div class="login-field"><label>メールアドレス</label><input type="email" id="signup-email" placeholder="example@mail.com"></div>
-        <div class="login-field"><label>パスワード（6文字以上）</label><input type="password" id="signup-pw" placeholder="パスワード"></div>
-        <button class="login-submit" onclick="doSignup()">アカウント作成</button>
+        <div class="login-field">
+          <label>メールアドレス</label>
+          <input type="email" id="signup-email" placeholder="example@mail.com" autocomplete="email">
+        </div>
+        <div class="login-field">
+          <label>パスワード（6文字以上）</label>
+          <input type="password" id="signup-pw" placeholder="パスワード" autocomplete="new-password" onkeydown="if(event.key==='Enter')doSignup()">
+        </div>
+        <button class="login-submit" id="signup-btn" onclick="doSignup()">アカウント作成</button>
         <div class="login-error" id="signup-error"></div>
-      </div>
-      <div style="margin-top:12px;text-align:center">
-        <button onclick="closeLoginOverlay()" style="background:none;border:none;color:var(--text-muted);font-size:12px;cursor:pointer;text-decoration:underline">キャンセル</button>
       </div>
     </div>
   </div>
@@ -1906,38 +1922,54 @@ function showTab(tab) {
 async function doLogin() {
   const email = $('login-email').value.trim();
   const pw = $('login-pw').value;
-  if (!email || !pw) return;
-  $('login-error').textContent = 'ログイン中...';
+  if (!email || !pw) { $('login-error').textContent = 'メールアドレスとパスワードを入力してください'; return; }
+  const btn = $('login-btn');
+  btn.textContent = 'ログイン中...'; btn.disabled = true;
+  $('login-error').textContent = '';
   try {
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('接続タイムアウト。ゲストモードをお試しください')), 8000));
-    const loginReq = _sb.auth.signInWithPassword({ email, password: pw });
-    const { data, error } = await Promise.race([loginReq, timeout]);
-    if (error) { $('login-error').textContent = 'エラー: ' + (error.message === 'Invalid login credentials' ? 'メールアドレスかパスワードが違います' : error.message); return; }
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('接続タイムアウト。ネット環境を確認してください')), 10000));
+    const { data, error } = await Promise.race([_sb.auth.signInWithPassword({ email, password: pw }), timeout]);
+    if (error) {
+      const msg = error.message === 'Invalid login credentials'
+        ? 'メールアドレスまたはパスワードが違います'
+        : error.message === 'Email not confirmed'
+        ? 'メール確認が完了していません。受信箱をご確認ください'
+        : error.message;
+      $('login-error').textContent = msg;
+      return;
+    }
     await onLoginSuccess(data.user);
   } catch(e) {
-    $('login-error').textContent = 'エラー: ' + e.message;
+    $('login-error').textContent = e.message;
+  } finally {
+    btn.textContent = 'ログイン'; btn.disabled = false;
   }
 }
 
 async function doSignup() {
   const email = $('signup-email').value.trim();
   const pw = $('signup-pw').value;
-  if (!email || !pw) return;
-  $('signup-error').textContent = '登録中...';
+  if (!email || !pw) { $('signup-error').textContent = 'メールアドレスとパスワードを入力してください'; return; }
+  if (pw.length < 6) { $('signup-error').textContent = 'パスワードは6文字以上にしてください'; return; }
+  const btn = $('signup-btn');
+  btn.textContent = '登録中...'; btn.disabled = true;
+  $('signup-error').textContent = '';
   try {
-    const { data, error } = await _sb.auth.signUp({ email, password: pw });
-    if (error) { $('signup-error').textContent = 'エラー: ' + error.message; return; }
-    if (data.user && !data.session) {
-      $('signup-error').textContent = '✅ 登録完了！「ログイン」タブからログインしてください。';
-      return;
-    }
-    if (data.user) {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('接続タイムアウト。ネット環境を確認してください')), 10000));
+    const { data, error } = await Promise.race([_sb.auth.signUp({ email, password: pw }), timeout]);
+    if (error) { $('signup-error').textContent = error.message; return; }
+    if (data.session && data.user) {
+      // Email confirmation disabled — logged in immediately
       await onLoginSuccess(data.user);
     } else {
-      $('signup-error').textContent = 'エラー: 登録に失敗しました。しばらくしてから再試行してください。';
+      // Email confirmation required
+      $('signup-error').style.color = 'var(--primary-dark)';
+      $('signup-error').textContent = '✅ 登録完了！確認メールを送りました。メールのリンクをクリックしてからログインしてください。';
     }
   } catch(e) {
-    $('signup-error').textContent = 'エラー: ' + e.message;
+    $('signup-error').textContent = e.message;
+  } finally {
+    btn.textContent = 'アカウント作成'; btn.disabled = false;
   }
 }
 
@@ -1950,20 +1982,19 @@ async function onLoginSuccess(user) {
   _currentUser = user;
   _userId = user.id;
   $('login-overlay').style.display = 'none';
-  $('user-email-display').textContent = user.email;
+  $('user-email-display').textContent = user.email.split('@')[0];
   $('btn-account').textContent = 'ログアウト';
   $('btn-account').onclick = doLogout;
   await syncFromCloud();
   initApp();
-  showToast('✅ ログイン成功: ' + user.email);
 }
 
 function useGuestMode() {
-  _userId = 'local';
+  _userId = 'guest';
   $('login-overlay').style.display = 'none';
-  $('user-email-display').textContent = 'ローカル';
-  $('btn-account').textContent = 'アカウント';
-  $('btn-account').onclick = openAccountMenu;
+  $('user-email-display').textContent = 'ゲスト';
+  $('btn-account').textContent = 'ログイン';
+  $('btn-account').onclick = () => { $('login-overlay').style.display = ''; };
   initApp();
 }
 
@@ -3820,28 +3851,22 @@ function initApp() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // Start immediately in local mode — no login required
-  useGuestMode();
+  const cfg = getSbConfig() || SB_DEFAULT;
+  initSb(cfg.url, cfg.key);
 
-  // Try Supabase in background (non-blocking)
   try {
-    const cfg = getSbConfig() || SB_DEFAULT;
-    initSb(cfg.url, cfg.key);
-    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000));
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000));
     const { data: { session } } = await Promise.race([_sb.auth.getSession(), timeout]);
     if (session && session.user) {
-      // Silently upgrade to cloud account
-      _currentUser = session.user;
-      _userId = session.user.id;
-      $('user-email-display').textContent = session.user.email;
-      $('btn-account').textContent = 'ログアウト';
-      $('btn-account').onclick = doLogout;
-      await syncFromCloud();
-      renderWeight(); renderDiet();
+      await onLoginSuccess(session.user);
+      return;
     }
   } catch (e) {
-    // Supabase unavailable — stay in local mode
+    // Supabase unavailable — show login with error hint
+    $('login-error').textContent = '⚠️ サーバー接続に問題があります。ゲストとして使うこともできます。';
   }
+  // Show login screen
+  $('login-overlay').style.display = '';
 });
 
 /* ====================== BMR / PFC ====================== */
